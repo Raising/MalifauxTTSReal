@@ -1,0 +1,22 @@
+{
+  "name": "node-scrape-boilerplate",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node generate-breachside-models.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^0.21.1",
+    "cheerio": "^1.0.0-rc.5",
+    "express": "^4.17.1",
+    "image-js": "^0.21.8",
+    "pdf-transform-png": "^1.0.4",
+    "puppeteer": "^7.0.4",
+    "screenshot-desktop": "^1.11.0",
+    "text2png": "^2.3.0"
+  }
+}
