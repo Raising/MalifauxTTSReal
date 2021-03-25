@@ -58,15 +58,24 @@ const getMalifauxBag = async () => {
     };
 
     Object.values(figurineData).forEach( figurine => {
-        let referenceCard = createReferenceCard(figurine,referenceModelPrototype);
-        figurine.factions.forEach(factionName => {
-            if ( factionReferences[factionName] === undefined){
-                factionReferences[factionName] = [];
-            }
-            factionReferences[factionName].push(referenceCard);
+        index = 1;
+        MalifauxModelsInfo.models[figurine.name].fileNames.frontJPGs.forEach( (officialDataImage) => {
+        
+            let cardFrontImage = `https://firebasestorage.googleapis.com/v0/b/m3e-crew-builder-22534.appspot.com/o/${encodeURIComponent(officialDataImage)}?alt=media`
+            let referenceCard = createReferenceCard({...figurine,cardFront:cardFrontImage, name: index == 1 ? figurine.name : figurine.name + " " + index},referenceModelPrototype);
+            figurine.factions.forEach(factionName => {
+                if ( factionReferences[factionName] === undefined){
+                    factionReferences[factionName] = [];
+                }
+                factionReferences[factionName].push(referenceCard);
+            });
+            referenceCard = createReferenceCard({...figurine,cardFront:cardFrontImage, name: index == 1 ? figurine.name : figurine.name + " " + index},referenceModelPrototype,true);
+            factionReferences.all.push(referenceCard);
+            
+            index++;
+
         });
-        referenceCard = createReferenceCard(figurine,referenceModelPrototype,true);
-        factionReferences.all.push(referenceCard);
+
     
     });
 
@@ -127,7 +136,7 @@ const createUpgradeCard= (upgradeData,upgradeCardPrototype) => {
     let image = `https://firebasestorage.googleapis.com/v0/b/m3e-crew-builder-22534.appspot.com/o/${encodeURIComponent(upgradeData.fileNames.frontJPGs[0])}?alt=media`;
     referenceCard.CustomImage.ImageURL = image;
     referenceCard.CustomImage.ImageSecondaryURL = image;
-    referenceCard.Nickname = `${upgradeData.name}\r\n${upgradeData.factions.join(',')}`;
+    referenceCard.Nickname = upgradeData.name;
     referenceCard.Description = `${upgradeData.name}\r\n${upgradeData.factions.join(',')}`;
 
     return referenceCard;

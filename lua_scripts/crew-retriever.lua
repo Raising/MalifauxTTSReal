@@ -1,5 +1,15 @@
 referenceCardsContainerGUID = "000888"
+upgradeContainerGUID = "000777"
+controllerGUID = "e894f6"
+
 referenceCardsContainerObject = nil
+upgradeContainerObject = nil
+
+
+basePosition = {x= -22, y=1,z=14}
+
+spawnedRefCards = {}
+
 function onload(saved_data)
     createAll()
 end
@@ -37,8 +47,20 @@ function reloadAll()
 end
 
 function retrieve_crew(_obj, _color, alt_click)
+    for key,refCard in pairs(spawnedRefCards) do
+        if not refCard.isDestroyed() then
+            refCard.call("destruct", {})
+            refCard.destruct()
+        end
+    end
+    spawnedRefCards = {}
+    local placeReferences = false
+   
     if referenceCardsContainerObject == nil then
         referenceCardsContainerObject = getObjectFromGUID(referenceCardsContainerGUID)
+    end
+    if upgradeContainerObject == nil then
+        upgradeContainerObject = getObjectFromGUID(upgradeContainerGUID)
     end
     local modelPosition = 0
    local description = self.getData().Description
@@ -49,29 +71,67 @@ function retrieve_crew(_obj, _color, alt_click)
       local entity = string.sub(value, 3)
       local secondCharacter = string.sub(entity, 1, 2)
       if secondCharacter == '  ' then
+        spawnUpgrade(string.sub(entity, 3),modelPosition)
         print('upgrade: ' .. string.sub(entity, 3))
       else
         spawnModel(entity,modelPosition)
         print('model: ' .. entity)
-        modelPosition = modelPosition +1
+        if placeReferences == false then
+            modelPosition = modelPosition +1
+        end
+        
       end
+    else
+        if value == 'References:' then
+            placeReferences = true    
+            modelPosition = modelPosition + 2
+        end
+
     end
     
    end
 end
 
-function spawnModel ( modelName,modelPosition)
-    local pos = self.getPosition()
-    print(modelPosition)
-    pos = {x=pos.x + 4 + modelPosition * 3, y=pos.y+1 , z=pos.z}
+function spawnModel ( modelName,modelSlot)
+    pos = getSlotPosition(modelSlot)
+    
     for key,containedObject in pairs(referenceCardsContainerObject.getObjects()) do
         if containedObject.name == modelName then
-
+            ismodel = true
             referenceCardsContainerObject.takeObject({
                 index = containedObject.index,
-                position = pos,
+                position = {x=pos.x,y=pos.y+1,z=pos.z },
+                rotation = {x=0,y=-90,z=0},
                 callback_function = function(spawnedObject)
-                    spawnedObject.clone({position=referenceCardsContainerObject.getPosition()})
+                    spawnedObject.clone({position=referenceCardsContainerObject.getPosition(),rotation={x=0,y=180,z=0}})
+                    spawnedObject.call("createModel", controllerGUID)
+                    table.insert(spawnedRefCards, spawnedObject)
+                end,
+            })
+           
+            break -- Stop iterating
+        end
+    end
+
+    if ismodel == false then
+        spawnUpgrade ( modelName,modelPosition )
+    end
+
+end
+
+
+function spawnUpgrade ( modelName,modelSlot)
+    pos = getSlotPosition(modelSlot-1)
+    for key,containedObject in pairs(upgradeContainerObject.getObjects()) do
+        if containedObject.name == modelName then
+
+            upgradeContainerObject.takeObject({
+                index = containedObject.index,
+                position = {x=pos.x,y=pos.y,z=pos.z + 0.6},
+                rotation = {x=0,y=-90,z=0},
+                callback_function = function(spawnedObject)
+                    spawnedObject.clone({position=upgradeContainerObject.getPosition(),rotation={x=0,y=180,z=0}})
+                    table.insert(spawnedRefCards, spawnedObject)
                 end,
             })
            
@@ -79,6 +139,18 @@ function spawnModel ( modelName,modelPosition)
         end
     end
 end
+
+function getSlotPosition(modelSlot)
+    local row = 0
+    local targetPos = modelSlot
+    while targetPos >= 10 do
+        row = row + 1
+        targetPos = targetPos - 10
+    end
+    
+    return {z=basePosition.z + ((targetPos) * (- 3.6)) , y=basePosition.y , x=basePosition.x+ row * -6}
+end
+
 
 function mysplit (inputstr, sep)
     if sep == nil then

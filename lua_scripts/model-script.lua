@@ -1,5 +1,7 @@
 TRH_Class = 'mini'
 
+local radToDeg = 180 / math.pi
+local degToRad = math.pi / 180
 local state = {};
 local PERMEDIT = 'Grey|Host|Admin|Black|White|Brown|Red|Orange|Yellow|Green|Teal|Blue|Purple|Pink|Clubs|Diamonds|Hearts|Spades|Jokers';
 local PERMVIEW = 'Grey|Host|Admin|Black|White|Brown|Red|Orange|Yellow|Green|Teal|Blue|Purple|Pink|Clubs|Diamonds|Hearts|Spades|Jokers';
@@ -11,7 +13,8 @@ local base_radius = 1;
 local arc_obj;
 local init = false;
 local rotateVector = function(a,b)
-	local c=math.rad(b)local d=math.cos(c)*a[1]+math.sin(c)*a[2]local e=math.sin(c)*a[1]*-1+math.cos(c)*a[2]return{d,e,a[3]}
+
+local c=math.rad(b)local d=math.cos(c)*a[1]+math.sin(c)*a[2]local e=math.sin(c)*a[1]*-1+math.cos(c)*a[2]return{d,e,a[3]}
 end
 local indexOf = function(e, t)
 	for k,v in pairs(t) do
@@ -22,7 +25,6 @@ end
 function onUpdate()
 	if init == false then
 		base_radius = self.getData().Transform.scaleX /2
-
 	end
 end
 
@@ -512,108 +514,328 @@ function rebuildAssets()
 end
 function rebuildUI()
 	recalculateModelSize()
-local w = 133.33333333333; local orient = 'HORIZONTAL';
-local mainButtons = {};
-local mainButtonX = 20;
-local arcActive = arc_obj ~= nil;
-table.insert(mainButtons, {tag='button', attributes={id='btn_show_arc', active=(not arcActive), height='30', width='30', rectAlignment='MiddleLeft', image='ui_arcs', offsetXY=mainButtonX..' 0', colors='#ccccccff|#ffffffff|#404040ff|#808080ff', onClick='ui_showarc', visibility=PERMEDIT}});
-table.insert(mainButtons, {tag='button', attributes={id='btn_hide_arc', active=(arcActive), height='30', width='30', rectAlignment='LowerLeft', image='ui_arcs', offsetXY=mainButtonX..' 0', colors='#ccccccff|#ffffffff|#404040ff|#808080ff', onClick='ui_hidearc', visibility=PERMEDIT}});
-table.insert(mainButtons, {tag='button', attributes={id='btn_arc_sub', active=(arcActive and arc_len > 0), height='30', width='30', rectAlignment='LowerLeft', image='ui_minus', offsetXY='-70 0', colors='#ccccccff|#ffffffff|#404040ff|#808080ff', onClick='ui_arcsub', visibility=PERMEDIT}});
-table.insert(mainButtons, {tag='text', attributes={id='disp_arc_len', active=(arcActive), height='30', width='30', rectAlignment='LowerLeft', text=arc_len, offsetXY='-40 0', color='#ffffff', fontSize='20', outline='#000000', visibility=PERMEDIT}});
-table.insert(mainButtons, {tag='button', attributes={id='btn_arc_add', active=(arcActive and arc_len < 16), height='30', width='30', rectAlignment='LowerLeft', image='ui_plus', offsetXY='-10 0', colors='#ccccccff|#ffffffff|#404040ff|#808080ff', onClick='ui_arcadd', visibility=PERMEDIT}});
-mainButtonX = mainButtonX + 30;
-table.insert(mainButtons, {tag='button', attributes={height='30', width='30', rectAlignment='MiddleRight', image='ui_gear', offsetXY='-50 0', colors='#ccccccff|#ffffffff|#404040ff|#808080ff', onClick='ui_setmode(markers)', visibility=PERMEDIT}});
-table.insert(mainButtons, {tag='button', attributes={height='30', width='30', rectAlignment='MiddleRight', image='ui_reload', offsetXY='-20 0', colors='#ccccccff|#ffffffff|#404040ff|#808080ff', onClick='rebuildUI', visibility=PERMVIEW}});
+	
+	
+	local ui_movement = {};
+	local ui_shields = {};
+	self.UI.setXmlTable({ui_shields, ui_movement, UI_Overhead(), UI_Config(), UI_Floor()});
+end
 
-local mainlist_markers = {}
-local settingslist_markers = {}
-for i,marker in pairs(state.markers) do
-table.insert(mainlist_markers,{tag='panel',attributes={},
-        				children={
-        					{tag='image',attributes={image=assetBuffer[marker[2]],color=marker[3],rectAlignment='LowerLeft',width='40',height='40'}},
-        					{tag='text',attributes={id='counter_mk_'..i,text=marker[4]>1 and marker[4]or'',color='#ffffff',rectAlignment='UpperRight',width='20',height='20'}}
-        				}
-        			});
-table.insert(settingslist_markers,{tag='panel',attributes={color='#cccccc'},
-        				children={
-        					{tag='image',attributes={width=90,height=90,image=assetBuffer[marker[2]],color=marker[3],rectAlignment='MiddleCenter'}},
-        					{tag='text',attributes={id='disp_mk_'..i,width=30,height=30,fontSize=20,text=marker[4]>1 and marker[4]or'',rectAlignment='UpperLeft',alignment='MiddleLeft',offsetXY='5 0'}},
-        					{tag='button',attributes={width=30,height=30,image='ui_close',rectAlignment='UpperRight',colors='black|#808080|#cccccc',alignment='UpperRight',onClick='ui_popmarker('..i..')'}},
-        					{tag='text',attributes={width=110,height=30,rectAlignment='LowerCenter',resizeTextMinSize=10,resizeTextMaxSize=14,resizeTextForBestFit=true,fontStyle='Bold',text=marker[1],color='Black',alignment='LowerCenter'}}
-        				}
-        			});
-end;
-local mainlist_bars = {}
-        		local settingslist_bars = {{tag='Row',attributes={preferredHeight='30'},children={
-        			{tag='Cell',children={{tag='Text',attributes={color='#cccccc',text='Name'}}}},
-        			{tag='Cell',children={{tag='Text',attributes={color='#cccccc',text='Color'}}}},
-        			{tag='Cell',children={{tag='Text',attributes={color='#cccccc',text='Current'}}}},
-        			{tag='Cell',children={{tag='Text',attributes={color='#cccccc',text='Max'}}}},
-        			{tag='Cell',children={{tag='Text',attributes={color='#cccccc',text='Text'}}}},
-                    {tag='Cell',children={{tag='Text',attributes={color='#cccccc',text='Big'}}}},
-        		}}}
-        		for i,bar in pairs(state.bars) do
-        			local per = ((bar[4] == 0) and 0 or (bar[3] / bar[4] * 100))
-        			table.insert(mainlist_bars,
-        	        {tag='horizontallayout', attributes={id='bar_'..i..'_container',minHeight=bar[6]and 30 or 15,childForceExpandWidth=false,childForceExpandHeight=false,childAlignment='MiddleCenter'},
-        	            children={
-        	                {tag='button', attributes={preferredHeight='20',preferredWidth='20',flexibleWidth='0',image='ui_minus',colors='#ccccccff|#ffffffff|#404040ff|#808080ff',onClick='ui_adjbar('..i..'|-1)',visibility=PERMEDIT} },
-        	                {tag='panel', attributes={flexibleWidth='1',flexibleHeight='1'},
-        	                    children={
-        	                        {tag='progressbar', attributes={width='100%',height='100%',id='bar_'..i,color='#00000080',fillImageColor=bar[2],percentage=per,textColor='transparent'} },
-        	                        {tag='text', attributes={id='bar_'..i..'_text',text=bar[3]..' / '..bar[4],active=bar[5]or false,color='#ffffff',fontStyle='Bold',outline='#000000',outlineSize='1 1'} }
-        	                    }
-        	                },
-        	                {tag='button', attributes={preferredHeight='20',preferredWidth='20',flexibleWidth='0',image='ui_plus',colors='#ccccccff|#ffffffff|#404040ff|#808080ff',onClick='ui_adjbar('..i..'|1)',visibility=PERMEDIT} }
-        	            }
-        	        })
-        			table.insert(settingslist_bars,
-        			    {tag='Row', attributes={preferredHeight='30'},
-        			        children={
-        			            {tag='Cell',children={{tag='InputField',attributes={id='inp_bar_'..i..'_name',onEndEdit='ui_editbar',text=bar[1]or''}}}},
-        			            {tag='Cell',children={{tag='InputField',attributes={id='inp_bar_'..i..'_color',onEndEdit='ui_editbar',text=bar[2]or'#ffffff'}}}},
-        			            {tag='Cell',children={{tag='InputField',attributes={id='inp_bar_'..i..'_current',onEndEdit='ui_editbar',text=bar[3]or 10}}}},
-        			            {tag='Cell',children={{tag='InputField',attributes={id='inp_bar_'..i..'_max',onEndEdit='ui_editbar',text=bar[4]or 10}}}},
-                                {tag='Cell',children={{tag='Toggle',attributes={id='inp_bar_'..i..'_text',onValueChanged='ui_editbar',isOn=bar[5]or false}}}},
-        			            {tag='Cell',children={{tag='Toggle',attributes={id='inp_bar_'..i..'_big',onValueChanged='ui_editbar',isOn=bar[6]or false}}}},
-        			            {tag='Cell',children={{tag='Button',attributes={onClick='ui_removebar('..i..')',image='ui_close',colors='#cccccc|#ffffff|#808080'}}}}
-        			        }
-        			    })
-        			end
-local ui_overhead = { tag='Panel', attributes={childForceExpandHeight='false',visibility=PERMVIEW,position='0 -40 -400',rotation=orient=='HORIZONTAL'and'0 0 0'or'-90 0 0',active=ui_mode=='0',scale='0.6 0.6 0.6',height=0,color='red',width=w},
-	children={
-		{tag='VerticalLayout',attributes={rectAlignment='LowerCenter',childAlignment='LowerCenter',childForceExpandHeight=false,childForceExpandWidth=true,height='5000',spacing='5'},
-			children={{tag='GridLayout', attributes={contentSizeFitter='vertical', childAlignment='LowerLeft', flexibleHeight='0', cellSize='50 50', padding='10 10 0 0'}, children=mainlist_markers},{tag='VerticalLayout', attributes={contentSizeFitter='vertical', childAlignment='LowerCenter', flexibleHeight='0'}, children=mainlist_bars},{tag='Panel',attributes={minHeight='30',flexibleHeight='0'}, children=mainButtons }}
+function UI_Overhead()
+	local w = 100; local orient = 'HORIZONTAL';
+	local ui_overhead = { 
+		tag='Panel', 
+		attributes={
+			childForceExpandHeight='false',
+			position='0 5 -250',
+			rotation='-90 0 0',
+			active=ui_mode=='0',
+			scale='1 1 1',
+			height=0,
+			color='red',
+			width=w
+		},
+		children={
+			{
+				tag='VerticalLayout',
+				attributes={
+					rectAlignment='LowerCenter',
+					childAlignment='LowerCenter',
+					childForceExpandHeight=false,
+					childForceExpandWidth=true,
+					height='5000',
+					spacing='5'
+				},
+				children={
+					UI_Markers_Container(),
+					UI_Bars_Container(false),
+					--UI_Buttons_Container()
+				}
+			},
+			{
+				tag='VerticalLayout',
+				attributes={
+					rectAlignment='LowerCenter',
+					childAlignment='LowerCenter',
+					childForceExpandHeight=false,
+					childForceExpandWidth=true,
+					height='5000',
+					spacing='5',
+					rotation= '0 180 0',
+				},
+				children={
+					--UI_Markers_Container(),
+					UI_Bars_Container(true),
+					--UI_Buttons_Container()
+				}
+			}
 		}
 	}
-}
-local ui_settings = {tag='panel', attributes={id='ui_settings',height='0',width=640,position='0 -140 -420',rotation=(orient=='HORIZONTAL'and'0 0 0'or'-90 0 0'),scale='0.6 0.6 0.6',active=(ui_mode ~= '0'),visibility=PERMEDIT},
-        			children={{tag='panel',attributes={id='ui_settings_markers', offsetXY='0 40', height='400', rectAlignment='LowerCenter', color='black', active=(ui_mode == 'markers')},
-        			children={
-        				{tag='VerticalScrollView',attributes={width=640,height='340',rotation='0.1 0 0',rectAlignment='UpperCenter',offsetXY='0 -30',color='transparent'},
-        					children={
-        						{tag='GridLayout',attributes={padding='6 6 6 6', cellSize='120 120', spacing='2 2', childForceExpandHeight='false', autoCalculateHeight='true'}, children=settingslist_markers}
-        					}
-        				},
-        				{ tag='text', attributes={fontSize='24', height='30', text='MARKERS', color='#cccccc', rectAlignment='UpperLeft', alignment='MiddleCenter'}},
-        				{ tag='Button', attributes={width='150', height='30', rectAlignment='LowerRight', text='Clear Markers', onClick='ui_clearmarkers'}},
-        			}
-        		},{tag='button', attributes={height='40', width='40', rectAlignment='LowerLeft', image='ui_stack', offsetXY='0 0', colors='#ccccccff|#ffffffff|#404040ff|#808080ff', onClick='ui_setmode(markers)'}},{tag='panel', attributes={id='ui_settings_bars',offsetXY='0 40',height='400',rectAlignment='LowerCenter',color='black',active=ui_mode=='bars'},
-        			children={
-        				{tag='VerticalScrollView', attributes={width=640,height='340',rotation='0.1 0 0',rectAlignment='UpperCenter',color='transparent',offsetXY='0 -30'},
-        					children={
-        						{tag='TableLayout', attributes={columnWidths='0 100 60 60 30 30 30',childForceExpandHeight='false',cellBackgroundColor='transparent',autoCalculateHeight='true',padding='6 6 6 6'},
-        							children=settingslist_bars
-        						}
-        					}
-        				},
-        				{tag='text', attributes={fontSize='24',height='30',text='BARS',color='#cccccc',rectAlignment='UpperLeft',alignment='MiddleCenter'} },
-        				{tag='Button', attributes={width='150',height='30',rectAlignment='LowerLeft',text='Add Bar',onClick='ui_addbar'} },
-        				{tag='Button', attributes={width='150',height='30',rectAlignment='LowerRight',text='Clear Bars',onClick='ui_clearbars'} }
-        			}
-        		},{tag='button', attributes={height='40', width='40', rectAlignment='LowerLeft', image='ui_bars', offsetXY='40 0', colors='#ccccccff|#ffffffff|#404040ff|#808080ff', onClick='ui_setmode(bars)'}},{tag='button', attributes={height='40', width='40', rectAlignment='LowerCenter', image='ui_close', offsetXY='0 0', colors='#ccccccff|#ffffffff|#404040ff|#808080ff', onClick='ui_setmode(0)'}}}
-        		}
-local ui_movement = {};
-local ui_shields = {}
-self.UI.setXmlTable({ui_shields, ui_movement, ui_overhead, ui_settings});
+	return ui_overhead;
+end
+
+function UI_Floor()
+	local w = 100;
+	local ui_overhead = { 
+		tag='Panel', 
+		attributes={
+			childForceExpandHeight='false',
+			position='0 0 -4',
+			rotation='0 0 0',
+			active=ui_mode=='0',
+			scale='1 1 1',
+			height=0,
+			color='red',
+			width=0
+		},
+		children={
+			{
+				tag='VerticalLayout',
+				attributes={
+					rectAlignment='MiddleCenter',
+					childAlignment='MiddleCenter',
+					childForceExpandHeight=true,
+					childForceExpandWidth=true,
+					height='5000',
+					spacing='5'
+				},
+				children={
+					UI_Buttons_Container()
+				}
+			}
+		}
+	}
+	return ui_overhead;
+end
+
+function UI_Markers_Container()
+	return {
+		tag='GridLayout', 
+		attributes={
+			contentSizeFitter='vertical', 
+			childAlignment='LowerLeft', 
+			flexibleHeight='0', 
+			cellSize='50 50', 
+			padding='10 10 0 0'
+		},
+		children=UI_Markers()
+	}
+end
+function UI_Bars_Container(reverse)
+	return {
+		tag='VerticalLayout', 
+		attributes={
+			contentSizeFitter='vertical',
+			childAlignment='LowerCenter',
+			flexibleHeight='0'
+			},
+		children=UI_Bars(reverse)
+	}
+end
+
+function UI_Buttons_Container()
+	return {
+		tag='Panel',
+		attributes={
+			minHeight='0',
+			flexibleHeight='0'
+		}, 
+		children=UI_Buttons_Circle() 
+	}
+end
+
+function UI_Config()
+	local orient = 'HORIZONTAL';
+	local ui_config = {tag='panel', attributes={id='ui_config',height='0',width=640,position='0 -140 -420',rotation=(orient=='HORIZONTAL'and'0 0 0'or'-90 0 0'),scale='0.6 0.6 0.6',active=(ui_mode ~= '0'),visibility=PERMEDIT},
+		children={{tag='panel',attributes={id='ui_settings_markers', offsetXY='0 40', height='400', rectAlignment='LowerCenter', color='black', active=(ui_mode == 'markers')},
+		children={
+			{tag='VerticalScrollView',attributes={width=640,height='340',rotation='0.1 0 0',rectAlignment='UpperCenter',offsetXY='0 -30',color='transparent'},
+				children={
+					{tag='GridLayout',attributes={padding='6 6 6 6', cellSize='120 120', spacing='2 2', childForceExpandHeight='false', autoCalculateHeight='true'}, children=CONF_Markers()}
+				}
+			},
+			{ tag='text', attributes={fontSize='24', height='30', text='MARKERS', color='#cccccc', rectAlignment='UpperLeft', alignment='MiddleCenter'}},
+			{ tag='Button', attributes={width='150', height='30', rectAlignment='LowerRight', text='Clear Markers', onClick='ui_clearmarkers'}},
+		}
+	},{tag='button', attributes={height='40', width='40', rectAlignment='LowerLeft', image='ui_stack', offsetXY='0 0', colors='#ccccccff|#ffffffff|#404040ff|#808080ff', onClick='ui_setmode(markers)'}},{tag='panel', attributes={id='ui_settings_bars',offsetXY='0 40',height='400',rectAlignment='LowerCenter',color='black',active=ui_mode=='bars'},
+		children={
+			{tag='VerticalScrollView', attributes={width=640,height='340',rotation='0.1 0 0',rectAlignment='UpperCenter',color='transparent',offsetXY='0 -30'},
+				children={
+					{tag='TableLayout', attributes={columnWidths='0 100 60 60 30 30 30',childForceExpandHeight='false',cellBackgroundColor='transparent',autoCalculateHeight='true',padding='6 6 6 6'},
+						children=CONF_Bars()
+					}
+				}
+			},
+			{tag='text', attributes={fontSize='24',height='30',text='BARS',color='#cccccc',rectAlignment='UpperLeft',alignment='MiddleCenter'} },
+			{tag='Button', attributes={width='150',height='30',rectAlignment='LowerLeft',text='Add Bar',onClick='ui_addbar'} },
+			{tag='Button', attributes={width='150',height='30',rectAlignment='LowerRight',text='Clear Bars',onClick='ui_clearbars'} }
+		}
+	},{tag='button', attributes={height='40', width='40', rectAlignment='LowerLeft', image='ui_bars', offsetXY='40 0', colors='#ccccccff|#ffffffff|#404040ff|#808080ff', onClick='ui_setmode(bars)'}},{tag='button', attributes={height='40', width='40', rectAlignment='LowerCenter', image='ui_close', offsetXY='0 0', colors='#ccccccff|#ffffffff|#404040ff|#808080ff', onClick='ui_setmode(0)'}}}
+	}
+
+	return ui_config;
+end
+
+
+function UI_Buttons()
+	local buttons = {};
+	local mainButtonX = 20;
+	local arcActive = arc_obj ~= nil;
+	table.insert(buttons, UI_Button('btn_show_arc'	,not arcActive				,'MiddleLeft'	,'ui_arcs'	,mainButtonX..' 0'	,'ui_showarc'));
+	table.insert(buttons, UI_Button('btn_hide_arc'	,arcActive					,'LowerLeft'	,'ui_arcs'	,mainButtonX..' 0'	,'ui_hidearc'));
+	table.insert(buttons, UI_Button('btn_arc_sub'	,arcActive and arc_len > 0	,'LowerLeft'	,'ui_minus'	,'-70 0'			,'ui_arcsub'));
+	table.insert(buttons, {tag='text', attributes={id='disp_arc_len', active=(arcActive), height='30', width='30', rectAlignment='LowerLeft', text=arc_len, offsetXY='-40 0', color='#ffffff', fontSize='20', outline='#000000', visibility=PERMEDIT}});
+	table.insert(buttons, UI_Button('btn_arc_add'	,arcActive and arc_len < 16	,'LowerLeft'	,'ui_plus'	,'-10 0'			,'ui_arcadd'));
+
+	table.insert(buttons, UI_Button('btn_markers',true,'MiddleRight','ui_gear','-50 0','ui_setmode(markers)'));
+	table.insert(buttons, UI_Button('btn_refresh',true,'MiddleRight','ui_reload','-20 0','rebuildUI'));
+	table.insert(buttons, UI_Button('btn_move',true,'LowerRight','ui_splitpath','0 0','rebuildUI'));
+	
+	return buttons;
+end
+
+function UI_Buttons_Circle()
+	local buttons = {};
+	local mainButtonX = 20;
+	local arcActive = arc_obj ~= nil;
+	local radius = 60;
+	
+	local angleStep = 30 * degToRad;
+
+	table.insert(buttons, UI_Button('btn_show_arc'	,not arcActive				,'MiddleCenter'	,'ui_arcs'	,CircularOffset(angleStep * 0,radius)	,'ui_showarc',CircularRotation(angleStep * 0)));
+	table.insert(buttons, UI_Button('btn_hide_arc'	,arcActive					,'MiddleCenter'	,'ui_arcs'	,CircularOffset(angleStep * 0,radius)	,'ui_hidearc',CircularRotation(angleStep * 0)));
+
+	table.insert(buttons, UI_Button('btn_arc_sub'	,arcActive and arc_len > 0	,'MiddleCenter'	,'ui_minus'	,CircularOffset(angleStep * 0.5,radius+25)				,'ui_arcsub',CircularRotation(angleStep *0)));
+	table.insert(buttons, {tag='text', attributes={id='disp_arc_len', active=(arcActive), height='30', width='30', rectAlignment='MiddleCenter', text=arc_len, offsetXY=CircularOffset(angleStep *0,radius+20),rotation=CircularRotation(angleStep * 0), color='#ffffff', fontSize='20', outline='#000000'}});
+	table.insert(buttons, UI_Button('btn_arc_add'	,arcActive and arc_len < 16	,'MiddleCenter'	,'ui_plus'	,CircularOffset(angleStep * -0.5,radius+25)				,'ui_arcadd',CircularRotation(angleStep * 0)));
+
+	table.insert(buttons, UI_Button('btn_move',true,'MiddleCenter','ui_splitpath',CircularOffset(angleStep * 1,radius),'ui_move',CircularRotation(angleStep * 1)));
+	table.insert(buttons, UI_Button('btn_markers',true,'MiddleCenter','ui_gear',CircularOffset(angleStep * 2,radius),'ui_setmode(markers)',CircularRotation(angleStep * 2)));
+	table.insert(buttons, UI_Button('btn_refresh',true,'MiddleCenter','ui_reload',CircularOffset(angleStep * 3,radius),'rebuildUI',CircularRotation(angleStep * 3)));
+	
+	return buttons;
+end
+
+function CircularOffset(angle,radius)
+	return math.sin(angle)*radius .. ' ' .. math.cos(angle)*radius;
+end
+
+function CircularRotation(angle,radius)
+	return '0 0 ' ..  (180 -angle * radToDeg );
+end
+
+function UI_Button(id,active,alignment,img,offsetXY,onClick,rotation)
+	return {
+		tag='button', 
+		attributes={
+			id=id, 
+			active=active, 
+			height='30', 
+			width='30', 
+			rectAlignment=alignment, 
+			image=img, 
+			offsetXY=offsetXY, 
+			rotation= rotation,
+
+			colors='#ccccccff|#ffffffff|#404040ff|#808080ff', 
+			onClick=onClick
+		}};
+end
+
+
+function UI_Markers()
+	local markers = {}
+	for i,marker in pairs(state.markers) do
+		table.insert(markers,{tag='panel',attributes={},
+							children={
+								{tag='image',attributes={image=assetBuffer[marker[2]],color=marker[3],rectAlignment='LowerLeft',width='40',height='40'}},
+								{tag='text',attributes={id='counter_mk_'..i,text=marker[4]>1 and marker[4]or'',color='#ffffff',rectAlignment='UpperRight',width='20',height='20'}}
+							}
+						});
+
+	end;
+	return markers;
+end
+
+function CONF_Markers()
+	local markers = {};
+	for i,marker in pairs(state.markers) do
+	
+		table.insert(markers,{tag='panel',attributes={color='#cccccc'},
+						children={
+							{tag='image',attributes={width=90,height=90,image=assetBuffer[marker[2]],color=marker[3],rectAlignment='MiddleCenter'}},
+							{tag='text',attributes={id='disp_mk_'..i,width=30,height=30,fontSize=20,text=marker[4]>1 and marker[4]or'',rectAlignment='UpperLeft',alignment='MiddleLeft',offsetXY='5 0'}},
+							{tag='button',attributes={width=30,height=30,image='ui_close',rectAlignment='UpperRight',colors='black|#808080|#cccccc',alignment='UpperRight',onClick='ui_popmarker('..i..')'}},
+							{tag='text',attributes={width=110,height=30,rectAlignment='LowerCenter',resizeTextMinSize=10,resizeTextMaxSize=14,resizeTextForBestFit=true,fontStyle='Bold',text=marker[1],color='Black',alignment='LowerCenter'}}
+						}
+					});
+	end;
+	return markers;
+end
+
+
+
+function UI_Bars(reverse)
+	local bars = {};
+	for i,bar in pairs(state.bars) do
+		local per = ((bar[4] == 0) and 0 or (bar[3] / bar[4] * 100))
+
+		local increaseButton = {tag='button', attributes={preferredHeight='20',preferredWidth='20',flexibleWidth='0',image='ui_plus',colors='#ccccccff|#ffffffff|#404040ff|#808080ff',onClick='ui_adjbar('..i..'|1)',visibility=PERMEDIT} };
+		local decreaseButton = {tag='button', attributes={preferredHeight='20',preferredWidth='20',flexibleWidth='0',image='ui_minus',colors='#ccccccff|#ffffffff|#404040ff|#808080ff',onClick='ui_adjbar('..i..'|-1)',visibility=PERMEDIT} };
+		local bar ={tag='panel', attributes={flexibleWidth='1',flexibleHeight='1'},
+			children={
+				{tag='progressbar', attributes={width='100%',height='100%',id='bar_'..i,color='#00000080',fillImageColor=bar[2],percentage=per,textColor='transparent'} },
+				{tag='text', attributes={id='bar_'..i..'_text',text=bar[3]..' / '..bar[4],active=bar[5]or false,color='#ffffff',fontStyle='Bold',outline='#000000',outlineSize='1 1'} }
+			}
+		}
+		if reverse then
+			local intermediate = increaseButton;
+			increaseButton = decreaseButton;
+			decreaseButton = intermediate;
+			bar = {tag='panel', attributes={flexibleWidth='1',flexibleHeight='1'},
+			children={
+				{tag='progressbar', attributes={width='100%',height='100%',id='bar_'..i..'_b',color='#00000000',fillImageColor='#00000000',percentage=0,textColor='transparent'} },
+				{tag='text', attributes={id='bar_'..i..'_text_b',text=' ',active=bar[5]or false,color='#ffffff00',fontStyle='Bold',outline='#00000000',outlineSize='1 1'} }
+			}
+		}
+		end
+		table.insert(bars,
+		{tag='horizontallayout', attributes={id='bar_'..i..'_container',minHeight=bar[6]and 30 or 15,childForceExpandWidth=false,childForceExpandHeight=false,childAlignment='MiddleCenter'},
+			children={
+				decreaseButton,
+				bar,
+				increaseButton
+			}
+		})
+	end
+	return bars;
+end
+
+
+function CONF_Bars()
+	local bars = {{tag='Row',attributes={preferredHeight='30'},children={
+		{tag='Cell',children={{tag='Text',attributes={color='#cccccc',text='Name'}}}},
+		{tag='Cell',children={{tag='Text',attributes={color='#cccccc',text='Color'}}}},
+		{tag='Cell',children={{tag='Text',attributes={color='#cccccc',text='Current'}}}},
+		{tag='Cell',children={{tag='Text',attributes={color='#cccccc',text='Max'}}}},
+		{tag='Cell',children={{tag='Text',attributes={color='#cccccc',text='Text'}}}},
+		{tag='Cell',children={{tag='Text',attributes={color='#cccccc',text='Big'}}}},
+	}}}
+	for i,bar in pairs(state.bars) do
+		
+		table.insert(bars,
+			{tag='Row', attributes={preferredHeight='30'},
+				children={
+					{tag='Cell',children={{tag='InputField',attributes={id='inp_bar_'..i..'_name',onEndEdit='ui_editbar',text=bar[1]or''}}}},
+					{tag='Cell',children={{tag='InputField',attributes={id='inp_bar_'..i..'_color',onEndEdit='ui_editbar',text=bar[2]or'#ffffff'}}}},
+					{tag='Cell',children={{tag='InputField',attributes={id='inp_bar_'..i..'_current',onEndEdit='ui_editbar',text=bar[3]or 10}}}},
+					{tag='Cell',children={{tag='InputField',attributes={id='inp_bar_'..i..'_max',onEndEdit='ui_editbar',text=bar[4]or 10}}}},
+					{tag='Cell',children={{tag='Toggle',attributes={id='inp_bar_'..i..'_text',onValueChanged='ui_editbar',isOn=bar[5]or false}}}},
+					{tag='Cell',children={{tag='Toggle',attributes={id='inp_bar_'..i..'_big',onValueChanged='ui_editbar',isOn=bar[6]or false}}}},
+					{tag='Cell',children={{tag='Button',attributes={onClick='ui_removebar('..i..')',image='ui_close',colors='#cccccc|#ffffff|#808080'}}}}
+				}
+			})
+		end
+
+	return bars;
 end

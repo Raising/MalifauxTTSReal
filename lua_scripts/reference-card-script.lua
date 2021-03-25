@@ -13,8 +13,13 @@ name="Viktoria Chambers B"
 prototypes = {
     base = '000000',
 }
+function destruct()
+    if mini ~= nil then
+        mini.destruct()    
+    end
+end
 
-function createModel()
+function createModel(controllerGUID)
     local pos = self.getPosition()
     pos = {x=pos.x, y=pos.y + 2, z=pos.z+2}
 
@@ -44,7 +49,7 @@ function createModel()
     model.setName(name)
     model.script_state =  "{\"bars\":[[\"Health\",\"#55aa22\"," ..health .."," ..health..",true,true]],\"markers\":[]}"
     --  {bars={{'Health','#55aa22',health,health,true,true}},markers={}}
-    
+    model.call('setController',{guid:controllerGUID})
     mini = model
     -- end
 end
