@@ -4,9 +4,11 @@ controllerGUID = "e894f6"
 
 referenceCardsContainerObject = nil
 upgradeContainerObject = nil
+color = ''
 
 
-basePosition = {x= -22, y=1,z=14}
+basePositionBlue = {x= -22, y=1.5,z=14}
+basePositionRed = {x= 22, y=1.5,z=-14}
 
 spawnedRefCards = {}
 
@@ -22,7 +24,7 @@ function createAll()
     f_color = {0,0,0,1}
     self.createButton({
       label="Retrieve Crew",
-      click_function="retrieve_crew",
+      click_function="retrieve_crew_ui",
       tooltip=ttText,
       function_owner=self,
       position={0,1,0.6},
@@ -46,9 +48,19 @@ function reloadAll()
     updateSave()
 end
 
-function retrieve_crew(_obj, _color, alt_click)
+function retrieve_crew_ui(_obj, _color, alt_click)
+
+    print(_color)
+    if _color ~= 'Red' and _color ~= 'Blue' then
+        broadcastToAll("Please Select Color first, only Blue and Red are Valid");
+    else
+        color = _color
+        retrieve_crew()
+    end
+end
+function retrieve_crew()
     for key,refCard in pairs(spawnedRefCards) do
-        if not refCard.isDestroyed() then
+        if refCard ~= nil and not refCard.isDestroyed() then
             refCard.call("destruct", {})
             refCard.destruct()
         end
@@ -62,6 +74,7 @@ function retrieve_crew(_obj, _color, alt_click)
     if upgradeContainerObject == nil then
         upgradeContainerObject = getObjectFromGUID(upgradeContainerGUID)
     end
+
     local modelPosition = 0
    local description = self.getData().Description
    local separatedCrew = mysplit(description)
@@ -93,49 +106,47 @@ function retrieve_crew(_obj, _color, alt_click)
 end
 
 function spawnModel ( modelName,modelSlot)
-    pos = getSlotPosition(modelSlot)
-    
+    ismodel = false;
+
     for key,containedObject in pairs(referenceCardsContainerObject.getObjects()) do
         if containedObject.name == modelName then
             ismodel = true
+           
             referenceCardsContainerObject.takeObject({
                 index = containedObject.index,
-                position = {x=pos.x,y=pos.y+1,z=pos.z },
-                rotation = {x=0,y=-90,z=0},
+                position =  getSlotPosition(modelSlot):add(Vector(0,1,0)),
+                rotation = getSlotRotation(),
                 callback_function = function(spawnedObject)
                     spawnedObject.clone({position=referenceCardsContainerObject.getPosition(),rotation={x=0,y=180,z=0}})
                     spawnedObject.call("createModel", controllerGUID)
                     table.insert(spawnedRefCards, spawnedObject)
                 end,
             })
-           
-            break -- Stop iterating
+            break 
         end
     end
 
     if ismodel == false then
-        spawnUpgrade ( modelName,modelPosition )
+        spawnUpgrade ( modelName,modelSlot )
     end
 
 end
 
 
 function spawnUpgrade ( modelName,modelSlot)
-    pos = getSlotPosition(modelSlot-1)
     for key,containedObject in pairs(upgradeContainerObject.getObjects()) do
         if containedObject.name == modelName then
 
             upgradeContainerObject.takeObject({
                 index = containedObject.index,
-                position = {x=pos.x,y=pos.y,z=pos.z + 0.6},
-                rotation = {x=0,y=-90,z=0},
+                position = getSlotPosition(modelSlot-1.2),
+                rotation = getSlotRotation(),
                 callback_function = function(spawnedObject)
                     spawnedObject.clone({position=upgradeContainerObject.getPosition(),rotation={x=0,y=180,z=0}})
                     table.insert(spawnedRefCards, spawnedObject)
                 end,
             })
-           
-            break -- Stop iterating
+            break 
         end
     end
 end
@@ -143,12 +154,27 @@ end
 function getSlotPosition(modelSlot)
     local row = 0
     local targetPos = modelSlot
-    while targetPos >= 10 do
+    while targetPos >= 9.5 do
         row = row + 1
         targetPos = targetPos - 10
     end
-    
-    return {z=basePosition.z + ((targetPos) * (- 3.6)) , y=basePosition.y , x=basePosition.x+ row * -6}
+
+    if color == 'Red' then
+        return Vector( basePositionRed.x+ row * 6,basePositionRed.y  ,basePositionRed.z + ((targetPos) * ( 3.5)))
+    end
+    if color == 'Blue' then
+        return Vector( basePositionBlue.x+ row * -6,basePositionBlue.y  ,basePositionBlue.z + ((targetPos) * ( -3.5)))
+    end
+end
+
+
+function getSlotRotation(modelSlot)
+    if color == 'Red' then
+        return {x=0,y=90,z=0}
+    end
+    if color == 'Blue' then
+        return {x=0,y=-90,z=0}
+    end
 end
 
 

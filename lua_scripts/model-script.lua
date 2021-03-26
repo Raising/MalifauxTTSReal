@@ -11,6 +11,9 @@ local assetBuffer = {};
 local arc_len = 1;
 local base_radius = 1;
 local arc_obj;
+local selectingMovement = false;
+local moveDistance = 5;
+local moving = false;
 local init = false;
 local rotateVector = function(a,b)
 
@@ -694,6 +697,67 @@ function UI_Buttons()
 	return buttons;
 end
 
+
+
+function ui_move_open()
+	selectingMovement = true;
+	moving = false
+	self.UI.hide('btn_show_move')
+	self.UI.show('btn_hide_move')
+	self.UI.show('disp_mov_dist')
+	self.UI.show('btn_move_sub')
+	self.UI.show('btn_move_add')
+	self.UI.show('btn_move_start')
+	self.UI.hide('btn_move_abort')
+end
+
+function ui_move_hide()
+	selectingMovement = false;
+	moving = false
+	self.UI.show('btn_show_move')
+	self.UI.hide('btn_hide_move')
+	self.UI.hide('disp_mov_dist')
+	self.UI.hide('btn_move_sub')
+	self.UI.hide('btn_move_add')
+	self.UI.hide('btn_move_start')
+	self.UI.hide('btn_move_abort')
+end
+
+function ui_move_sub()
+	moveDistance = math.min(30,moveDistance - 1);
+	
+	self.UI.setAttribute('disp_mov_dist','text',moveDistance .. '¨')
+end
+
+function ui_move_add()
+	moveDistance = math.max(1,moveDistance + 1);
+		
+	self.UI.setAttribute('disp_mov_dist','text',moveDistance .. '¨')
+end
+
+function ui_move_start()
+	selectingMovement = false;
+	moving = true
+	self.UI.hide('btn_show_move')
+	self.UI.hide('btn_hide_move')
+	self.UI.hide('disp_mov_dist')
+	self.UI.hide('btn_move_sub')
+	self.UI.hide('btn_move_add')
+	self.UI.hide('btn_move_start')
+	self.UI.show('btn_move_abort')
+end
+function ui_move_abort()
+	selectingMovement = true;
+	moving = false
+	self.UI.hide('btn_show_move')
+	self.UI.show('btn_hide_move')
+	self.UI.show('disp_mov_dist')
+	self.UI.show('btn_move_sub')
+	self.UI.show('btn_move_add')
+	self.UI.show('btn_move_start')
+	self.UI.hide('btn_move_abort')
+end
+
 function UI_Buttons_Circle()
 	local buttons = {};
 	local mainButtonX = 20;
@@ -702,29 +766,45 @@ function UI_Buttons_Circle()
 	
 	local angleStep = 30 * degToRad;
 
-	table.insert(buttons, UI_Button('btn_show_arc'	,not arcActive				,'MiddleCenter'	,'ui_arcs'	,CircularOffset(angleStep * 0,radius)	,'ui_showarc',CircularRotation(angleStep * 0)));
-	table.insert(buttons, UI_Button('btn_hide_arc'	,arcActive					,'MiddleCenter'	,'ui_arcs'	,CircularOffset(angleStep * 0,radius)	,'ui_hidearc',CircularRotation(angleStep * 0)));
+	-- arc UI
+	table.insert(buttons, UI_Button('btn_show_arc'	,not arcActive				,'MiddleCenter'	,'ui_arcs'	,CircularOffset(angleStep * -1,radius)	,'ui_showarc',CircularRotation(angleStep * -1)));
+	table.insert(buttons, UI_Button('btn_hide_arc'	,arcActive					,'MiddleCenter'	,'ui_arcs'	,CircularOffset(angleStep * -1,radius)	,'ui_hidearc',CircularRotation(angleStep * -1)));
 
-	table.insert(buttons, UI_Button('btn_arc_sub'	,arcActive and arc_len > 0	,'MiddleCenter'	,'ui_minus'	,CircularOffset(angleStep * 0.5,radius+25)				,'ui_arcsub',CircularRotation(angleStep *0)));
-	table.insert(buttons, {tag='text', attributes={id='disp_arc_len', active=(arcActive), height='30', width='30', rectAlignment='MiddleCenter', text=arc_len, offsetXY=CircularOffset(angleStep *0,radius+20),rotation=CircularRotation(angleStep * 0), color='#ffffff', fontSize='20', outline='#000000'}});
-	table.insert(buttons, UI_Button('btn_arc_add'	,arcActive and arc_len < 16	,'MiddleCenter'	,'ui_plus'	,CircularOffset(angleStep * -0.5,radius+25)				,'ui_arcadd',CircularRotation(angleStep * 0)));
+	table.insert(buttons, UI_Button('btn_arc_sub'	,arcActive and arc_len > 0	,'MiddleCenter'	,'ui_minus'	,CircularOffset(angleStep * -0.5,radius+25)				,'ui_arcsub',CircularRotation(angleStep * -1)));
+	table.insert(buttons, {tag='text', attributes={id='disp_arc_len', active=(arcActive), height='30', width='30', rectAlignment='MiddleCenter', text=arc_len, offsetXY=CircularOffset(angleStep * -1,radius+20),rotation=CircularRotation(angleStep * -1), color='#ffffff', fontSize='20', outline='#000000'}});
+	table.insert(buttons, UI_Button('btn_arc_add'	,arcActive and arc_len < 16	,'MiddleCenter'	,'ui_plus'	,CircularOffset(angleStep * -1.5,radius+25)				,'ui_arcadd',CircularRotation(angleStep * -1)));
 
-	table.insert(buttons, UI_Button('btn_move',true,'MiddleCenter','ui_splitpath',CircularOffset(angleStep * 1,radius),'ui_move',CircularRotation(angleStep * 1)));
-	table.insert(buttons, UI_Button('btn_markers',true,'MiddleCenter','ui_gear',CircularOffset(angleStep * 2,radius),'ui_setmode(markers)',CircularRotation(angleStep * 2)));
-	table.insert(buttons, UI_Button('btn_refresh',true,'MiddleCenter','ui_reload',CircularOffset(angleStep * 3,radius),'rebuildUI',CircularRotation(angleStep * 3)));
+	
+	-- move config UI 
+	table.insert(buttons, UI_Button('btn_show_move',not selectingMovement ,'MiddleCenter','ui_splitpath',CircularOffset(angleStep * 1,radius),'ui_move_open',CircularRotation(angleStep * 1)));
+	table.insert(buttons, UI_Button('btn_hide_move'	,selectingMovement   ,'MiddleCenter'	,'ui_splitpath'	,CircularOffset(angleStep * 1,radius)	,'ui_move_hide',CircularRotation(angleStep * 1)));
+	table.insert(buttons, UI_Button('btn_move_sub'	,selectingMovement and moveDistance > 0	,'MiddleCenter'	,'ui_minus'	,CircularOffset(angleStep * 1.7,radius+5)				,'ui_move_sub',CircularRotation(angleStep * 1)));
+	table.insert(buttons, UI_Button('btn_move_add'	,selectingMovement and moveDistance < 30	,'MiddleCenter'	,'ui_plus'	,CircularOffset(angleStep * 0.3,radius+5)				,'ui_move_add',CircularRotation(angleStep * 1)));
+	
+	-- move start UI 
+	table.insert(buttons, UI_Button('btn_move_start'	,selectingMovement	,'MiddleCenter'	,'movenode'	,CircularOffset(angleStep * 1,radius+20),'ui_move_start',CircularRotation(angleStep * 1+ math.pi)));
+	table.insert(buttons, {tag='text', attributes={id='disp_mov_dist', active=(selectingMovement), height='30', width='30', rectAlignment='MiddleCenter', text=moveDistance .. '¨', offsetXY=CircularOffset(angleStep * 1,radius+20),rotation=CircularRotation(angleStep * 1 ), color='#22ee22', fontSize='20', outline='#000000'}});
+	table.insert(buttons, UI_Button('btn_move_abort'	,moving	,'MiddleCenter'	,'ui_plus'	,CircularOffset(angleStep * 1,radius),'ui_move_abort',CircularRotation(angleStep * 1+ math.pi/4), '#cc4444ff|#ff2222ff|#404040ff|#808080ff'));
+
+	-- config UI
+	table.insert(buttons, UI_Button('btn_markers',true,'MiddleCenter','ui_gear',CircularOffset(angleStep * 3,radius),'ui_setmode(markers)',CircularRotation(angleStep * 3)));
+	table.insert(buttons, UI_Button('btn_refresh',true,'MiddleCenter','ui_reload',CircularOffset(angleStep * -3,radius),'rebuildUI',CircularRotation(angleStep * -3)));
 	
 	return buttons;
 end
 
 function CircularOffset(angle,radius)
+	angle = angle + math.pi;
 	return math.sin(angle)*radius .. ' ' .. math.cos(angle)*radius;
 end
 
 function CircularRotation(angle,radius)
+	angle = angle + math.pi;
 	return '0 0 ' ..  (180 -angle * radToDeg );
 end
 
-function UI_Button(id,active,alignment,img,offsetXY,onClick,rotation)
+function UI_Button(id,active,alignment,img,offsetXY,onClick,rotation,paramcolor)
+	local color = paramcolor or '#ccccccff|#bbffbbff|#404040ff|#808080ff';
 	return {
 		tag='button', 
 		attributes={
@@ -737,7 +817,7 @@ function UI_Button(id,active,alignment,img,offsetXY,onClick,rotation)
 			offsetXY=offsetXY, 
 			rotation= rotation,
 
-			colors='#ccccccff|#ffffffff|#404040ff|#808080ff', 
+			colors=color, 
 			onClick=onClick
 		}};
 end
