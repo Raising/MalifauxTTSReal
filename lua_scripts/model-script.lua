@@ -11,6 +11,7 @@ local assetBuffer = {};
 local arc_len = 1;
 local base_radius = 1;
 local arc_obj;
+local flagged;
 
 local init = false;
 
@@ -50,7 +51,6 @@ function onLoad(save)
 
 function recalculateModelSize()
 		local desc = self.getData().Description
-		print(desc)
 		
 		local attachments = self.getAttachments()
 		for key,value in pairs(attachments) do
@@ -117,13 +117,14 @@ function showArc()
 		sound=false,
 		snap_to_grid=false,
 		callback_function=function(b)
-			b.jointTo(me, {
-				type='Fixed',
-				collision=false
-			})
+			-- b.jointTo(me, {
+			-- 	type='Fixed',
+			-- 	collision=false
+			-- })
 			b.setColorTint(clr)
 			b.setVar('parent',self)
 			b.setLuaScript([[
+				local lastParent = nil
 				function onLoad() 
 					(self.getComponent('BoxCollider') or self.getComponent('MeshCollider')).set('enabled',false)
 					Wait.condition(
@@ -137,10 +138,11 @@ function showArc()
 				end 
 				function onUpdate() 
 					if (parent ~= nil) then 
-						-- if (not parent.resting) then 
-						-- 	self.setPosition(parent.getPosition())
-						-- 	self.setRotation(parent.getRotation()) 
-						-- end 
+						if (not parent.resting or lastParent ~= parent) then 
+							lastParent = parent
+							self.setPosition(parent.getPosition())
+							self.setRotation(parent.getRotation()) 
+						end 
 					else 
 						self.destruct() 
 					end 
@@ -207,52 +209,52 @@ function setArcValue(a)
 						return added
 					end
 					
-	function getMarkers()
-						res = {}
-						for i,v in pairs(state.markers) do
-							res[i] = {
-								name = v[1],
-								url = v[2],
-								color = v[3],
-								count = v[4] or 1,
-								stacks = v[5] or false,
-							}
-						end
-						return res
-					end
-	function popMarker(data)
-						local i = tonumber(data.index)
-						local cur = state.markers[i][4] or 1
-						if (cur > 1) then
-							cur = cur - (data.amount or 1)
-							state.markers[i][4] = cur
-							self.UI.setAttribute('counter_mk_'..i, 'text', ((cur > 1) and cur or ''))
-							self.UI.setAttribute('disp_mk_'..i, 'text', ((cur > 1) and cur or ''))
-							if (controller_obj ~= nil) then controller_obj.call('syncAdjMiniMarker', { guid = self.guid, index=i, count=cur }) end
-						else
-							table.remove(state.markers, i)
-							if (controller_obj ~= nil) then controller_obj.call('syncMiniMarkers', {}) end
-							rebuildUI()
-						end
-					end
-	function removeMarker(data)
-						local index = tonumber(data.index) or error('index must be numeric');
-						local tmp = {}
-						for i,marker in pairs(state.markers) do
-							if (i ~= data.index) then
-								table.insert(tmp, marker)
-							end
-						end
-						state.markers = tmp
-						if (controller_obj ~= nil) then controller_obj.call('syncMiniMarkers', {}) end
-						rebuildUI()
-					end
-	function clearMarkers()
-						state.markers={}
-						if (controller_obj ~= nil) then controller_obj.call('syncMiniMarkers', {}) end
-						rebuildUI()
-					end
-	
+function getMarkers()
+	res = {}
+	for i,v in pairs(state.markers) do
+		res[i] = {
+			name = v[1],
+			url = v[2],
+			color = v[3],
+			count = v[4] or 1,
+			stacks = v[5] or false,
+		}
+	end
+	return res
+end
+function popMarker(data)
+	local i = tonumber(data.index)
+	local cur = state.markers[i][4] or 1
+	if (cur > 1) then
+		cur = cur - (data.amount or 1)
+		state.markers[i][4] = cur
+		self.UI.setAttribute('counter_mk_'..i, 'text', ((cur > 1) and cur or ''))
+		self.UI.setAttribute('disp_mk_'..i, 'text', ((cur > 1) and cur or ''))
+		if (controller_obj ~= nil) then controller_obj.call('syncAdjMiniMarker', { guid = self.guid, index=i, count=cur }) end
+	else
+		table.remove(state.markers, i)
+		if (controller_obj ~= nil) then controller_obj.call('syncMiniMarkers', {}) end
+		rebuildUI()
+	end
+end
+function removeMarker(data)
+	local index = tonumber(data.index) or error('index must be numeric');
+	local tmp = {}
+	for i,marker in pairs(state.markers) do
+		if (i ~= data.index) then
+			table.insert(tmp, marker)
+		end
+	end
+	state.markers = tmp
+	if (controller_obj ~= nil) then controller_obj.call('syncMiniMarkers', {}) end
+	rebuildUI()
+end
+function clearMarkers()
+	state.markers={}
+	if (controller_obj ~= nil) then controller_obj.call('syncMiniMarkers', {}) end
+	rebuildUI()
+end
+
 	
 
 
@@ -265,6 +267,8 @@ local moveRange = 5;
 local moving = false;
 local player = nil;
 local Move_Steps = {};
+local free_moving = false;
+
 local Current_Move_center = Vector(0,0,0);
 local Current_Move_centerX =0;
 local Current_Move_centerY =0;
@@ -277,30 +281,50 @@ function start_move_flow(_player)
 	player = _player;
 	recalculate_move_center()
 	spawnMoveShadow()
-	
+	self.setLock(true)
 	self.UI.setAttribute('move_click_detection', 'visibility', _player.color)
 	self.UI.show('move_click_detection')
 end
 
 function abort_move_flow()
+	clean_move_flow()
+end
+
+function accept_move_flow()
+	clean_move_flow()
+	self.setPosition(Current_Move_center)
+	ui_move_hide()
+end
+
+function clean_move_flow()
 	selectingMovement = true;
 	moving = false;
+	free_moving = false;
+	if arc_obj ~= nil then
+		arc_obj.setVar('parent',self)
+	end
 	if move_obj ~= nil then
 		move_obj.destruct();
 	end
 	if move_range_obj ~= nil then
 		move_range_obj.destruct();
 	end
+	for key,step in pairs(Move_Steps) do
+		if (step.shadow ~= nil) then
+			step.shadow.destruct();
+		end
+	end
+	Move_Steps = {};
+
 	self.UI.hide('move_click_detection')
 end
-
 
 function recalculate_move_center()
 	local previous_pos = self.getPosition();
 	local distance_left = moveRange;
 	for key,step in pairs(Move_Steps) do
-		distance_left = distance_left - previous_pos:distance(step);
-		previous_pos = step;
+		distance_left = distance_left - previous_pos:distance(step.pos);
+		previous_pos = step.pos;
 
 	end
 	Current_Move_center = Vector(previous_pos.x,previous_pos.y,previous_pos.z);
@@ -315,33 +339,74 @@ function recalculate_move_center()
 		move_obj.setVar('centerZ',Current_Move_centerZ)
 		move_obj.setVar('range',Distance_Left )
 	end
-	spawnRangeShadow()
-	print(Distance_Left)
+	--spawnRangeCircle()
 end
 
 function add_move_step()
-	destination = Current_Move_center:moveTowards(player.getPointerPosition(),Distance_Left)
-	Move_Steps[#Move_Steps+1] = destination;
-	recalculate_move_center();
+	if free_moving then
+		destination = player.getPointerPosition();
+		self.setPosition(destination);
+	else
+		if Distance_Left > 0.01 then
+			destination = Current_Move_center:moveTowards(player.getPointerPosition(),Distance_Left)
+			move_obj.setVar('lock',true)
+			Move_Steps[#Move_Steps+1] = {pos = destination, shadow = move_obj};
+			move_obj = nil;	
+			recalculate_move_center();
+			if Distance_Left > 0.01 then
+				spawnMoveShadow(false)
+			end
+		end
+	end
 end
 
 function remove_move_step()
-	table.remove(Move_Steps,#Move_Steps);
-	recalculate_move_center();
+	if free_moving then
+		cancel_free_move()
+	else
+		if #Move_Steps > 0 then
+			Move_Steps[#Move_Steps].shadow.destruct()
+			table.remove(Move_Steps,#Move_Steps);
+			recalculate_move_center();
+			if move_obj ~= nil then
+				move_obj.destruct()
+				move_obj = nil;	
+			end
+			spawnMoveShadow(false)
+		end
+	end
 end
 
-function spawnMoveShadow()
+
+function start_free_move(_player)
+	player = _player;
+	free_moving = true;
+	
+	recalculate_move_center();
+	self.UI.setAttribute('move_click_detection', 'visibility', _player.color)
+	self.UI.show('move_click_detection')
+	spawnMoveShadow(true)
+
+end
+function cancel_free_move()
+	free_moving = false;
+	clean_move_flow();
+	self.UI.show('btn_free_move')
+	self.UI.hide('btn_cancel_free_move')
+end
+
+function spawnMoveShadow(free)
 
 	local a=base_radius * 2;
 	local me = self
 	local clr = self.getColorTint()
-	Move_Steps = {}
+
 	
 	clr.a = 0.5;
 
 		move_obj=spawnObject({
 		type='custom_model',
-		position=self.getPosition(),
+		position=Current_Move_center,
 		rotation=Vector(0,0,0),
 		scale={a,1,a},
 		mass=0,
@@ -349,6 +414,9 @@ function spawnMoveShadow()
 		sound=false,
 		snap_to_grid=false,
 		callback_function=function(b)
+			if arc_obj ~= nil then
+				arc_obj.setVar('parent',b)
+			end
 			b.setColorTint(clr)
 			b.setVar('model',self)
 			b.setVar('player',player)
@@ -356,14 +424,21 @@ function spawnMoveShadow()
 			b.setVar('centerX',Current_Move_centerX)
 			b.setVar('centerY',Current_Move_centerY)
 			b.setVar('centerZ',Current_Move_centerZ)
-			b.setVar('range',Distance_Left)
+			b.setVar('range',free and 200 or Distance_Left)
+			b.setVar('maxRange',free and 200 or moveRange)
+			b.setVar('lock',false)
+			
 
 			b.setLuaScript([[
+				local lastPointer = {};
+				local UIinit = 2
 				function onLoad() 
 					(self.getComponent('BoxCollider') or self.getComponent('MeshCollider')).set('enabled',false)
 					Wait.condition(
 						function() 
 							(self.getComponent('BoxCollider') or self.getComponent('MeshCollider')).set('enabled',false) 
+							self.UI.setXmlTable({DirectionFeedBack()})
+							
 						end, 
 						function() 
 							return not(self.loading_custom) 
@@ -373,12 +448,74 @@ function spawnMoveShadow()
 				function onUpdate() 
 					
 					if (model ~= nil and player ~= nil) then 
-						local  destination = Vector(centerX,centerY,centerZ):moveTowards(player.getPointerPosition(),range)
-						self.setPosition(destination)
+						
+						if lock == false and lastPointer ~= player.getPointerPosition() and UIinit < 0 then
+							lastPointer = player.getPointerPosition()
+							local center = Vector(centerX,centerY,centerZ);
+							local destination = center:copy():moveTowards(lastPointer,range)
+							self.setPosition(destination)
+						
+						
+							 local angle = math.atan2(destination.z - center.z, center.x-destination.x  ) * 180 / math.pi  + 90;
+							
+							local zDist = destination.z - center.z;
+							local xDist = center.x - destination.x ;
+							local distance = math.sqrt(zDist* zDist + xDist * xDist)
+							if ]].. (not free and 'true' or 'false') .. [[ then
+							self.UI.setAttribute('move_trail','height',distance * 50 / ]]..base_radius..[[ )
+							end
+							self.UI.setAttribute('current_mov_dist','text',(maxRange - range + distance + 0.04)..'¨' )
+							self.setRotation({x=0,y=angle,z=0})
+						else
+							UIinit = UIinit -1
+						end
 					else
 						self.destruct() 
 					end 
 					
+				end
+								
+				function DirectionFeedBack()
+					local ui_direction = { 
+						tag='Panel', 
+						attributes={
+							childForceExpandHeight='false',
+							position='0 0 -10',
+							rotation='0 0 0',
+							scale='1 1 1',
+							height=0,
+							color='#aaaa3355',
+							width=0
+						},
+						children={
+							{
+								tag='Panel',
+								attributes={
+									id='move_trail',
+									rectAlignment='LowerCenter',
+									height='0',
+									width='100',
+									spacing='5',
+									color='#aaaa3355',
+								}
+							},
+							{
+								tag='text',
+								attributes={
+									id='current_mov_dist',
+									height='30',
+									width='30', 
+									rectAlignment='MiddleCenter',
+									text='¨', 
+									offsetXY='0 0 -20',
+									color='#22ee22',
+									fontSize='20',
+									outline='#000000'
+								}
+							}
+						}
+					}
+					return ui_direction;
 				end
 				function ui_add_move_step()
 					print("click on move step")
@@ -407,7 +544,7 @@ function spawnMoveShadow()
 	})
 end
 
-function spawnRangeShadow()
+function spawnRangeCircle()
 	
 	if move_range_obj ~= nil then
 		move_range_obj.destruct();
@@ -418,7 +555,7 @@ function spawnRangeShadow()
 	
 	-- clr.a = 0.3;
 
-		move_range_obj=spawnObject({
+	move_range_obj=spawnObject({
 		type='custom_model',
 		position=Current_Move_center,
 		rotation=Vector(0,0,0),
@@ -751,7 +888,7 @@ function rebuildAssets()
 function rebuildUI()
 	recalculateModelSize()
 	
-	self.UI.setXmlTable({ UI_Move_Click_Detection(),UI_Overhead(), UI_Config(), UI_Floor()});
+	self.UI.setXmlTable({ UI_Move_Click_Detection(), UI_Floor(),UI_Overhead(), UI_Config()});
 	end
 
 function UI_Overhead()
@@ -760,8 +897,8 @@ function UI_Overhead()
 		tag='Panel', 
 		attributes={
 			childForceExpandHeight='false',
-			position='0 5 -250',
-			rotation='-90 0 0',
+			position='0 -40 -250',
+			rotation='-0 0 0',
 			active=ui_mode=='0',
 			scale='1 1 1',
 			height=0,
@@ -772,6 +909,7 @@ function UI_Overhead()
 			{
 				tag='VerticalLayout',
 				attributes={
+					rotation='-15 0 0',
 					rectAlignment='LowerCenter',
 					childAlignment='LowerCenter',
 					childForceExpandHeight=false,
@@ -782,26 +920,9 @@ function UI_Overhead()
 				children={
 					UI_Markers_Container(),
 					UI_Bars_Container(false),
-					--UI_Buttons_Container()
 				}
 			},
-			{
-				tag='VerticalLayout',
-				attributes={
-					rectAlignment='LowerCenter',
-					childAlignment='LowerCenter',
-					childForceExpandHeight=false,
-					childForceExpandWidth=true,
-					height='5000',
-					spacing='5',
-					rotation= '0 180 0',
-				},
-				children={
-					--UI_Markers_Container(),
-					UI_Bars_Container(true),
-					--UI_Buttons_Container()
-				}
-			}
+			
 		}
 	}
 	return ui_overhead;
@@ -845,13 +966,11 @@ function UI_Move_Click_Detection()
 		tag='Panel', 
 		attributes={
 			childForceExpandHeight='false',
-			position='0 0 200',
+			position='0 0 1000',
 			rotation='0 0 0',
 			scale='1 1 1',
 			height=0,
-			color='red',
 			width=0,
-			
 		},
 		children={
 			{
@@ -859,15 +978,14 @@ function UI_Move_Click_Detection()
 					tag='button', 
 					attributes={
 						id='move_click_detection', 
-						height='10000', 
-						width='10000', 
+						height='40000', 
+						width='40000', 
 						rectAlignment='MiddleCenter', 
 						image='movenode', 
 						offsetXY='0 0 40', 
 						rotation= '0 0 0',
-						colors='#cccccc88|#bbffbb88|#404040ff|#808080ff', 
+						colors='#cccccc00|#bbffbb00|#40404000|#80808000', 
 						onClick='ui_add_move_step',
-						
 						active= moving
 					}
 				
@@ -885,8 +1003,8 @@ function UI_Markers_Container()
 			contentSizeFitter='vertical', 
 			childAlignment='LowerLeft', 
 			flexibleHeight='0', 
-			cellSize='50 50', 
-			padding='10 10 0 0'
+			cellSize='40 40', 
+			padding='2 2 0 0'
 		},
 		children=UI_Markers()
 	}
@@ -987,6 +1105,7 @@ function ui_move_hide()
 	self.UI.hide('btn_move_add')
 	self.UI.hide('btn_move_start')
 	self.UI.hide('btn_move_abort')
+	self.UI.hide('btn_move_accept')
 	end
 function ui_move_sub()
 	moveRange = math.min(30,moveRange - 1);
@@ -1016,6 +1135,13 @@ function ui_add_move_step(_player,alt_click)
 	if alt_click == '-2' then
 		remove_move_step()
 	end
+
+	if #Move_Steps > 0 then
+		self.UI.show('btn_move_accept')
+	else
+		self.UI.hide('btn_move_accept')
+	end
+
 end
 function ui_move_abort()
 	abort_move_flow()
@@ -1026,8 +1152,49 @@ function ui_move_abort()
 	self.UI.show('btn_move_add')
 	self.UI.show('btn_move_start')
 	self.UI.hide('btn_move_abort')
-	
+	self.UI.hide('btn_move_accept')
 end
+
+function ui_move_accept()
+	accept_move_flow()
+	self.UI.show('btn_show_move')
+	self.UI.hide('btn_hide_move')
+	self.UI.hide('disp_mov_dist')
+	self.UI.hide('btn_move_sub')
+	self.UI.hide('btn_move_add')
+	self.UI.hide('btn_move_start')
+	self.UI.hide('btn_move_abort')
+	self.UI.hide('btn_move_accept')
+end
+
+function ui_move_free(_player)
+	self.UI.hide('btn_free_move')
+	self.UI.show('btn_cancel_free_move')
+	start_free_move(_player)
+end
+
+function ui_cancel_move_free()
+	self.UI.show('btn_free_move')
+	self.UI.hide('btn_cancel_free_move')
+	cancel_free_move(_player)
+end
+
+function toggleFlag()
+	flagged = not flagged;
+	if flagged then
+		self.UI.show('btn_flag_true')
+		self.UI.hide('btn_flag_false')
+		self.UI.setAttribute('bar_1_container','color','#ffff0055');
+		
+	else
+		self.UI.hide('btn_flag_true')
+		self.UI.show('btn_flag_false')
+		self.UI.setAttribute('bar_1_container','color','#ffff0000');
+	end
+
+end
+
+
 function UI_Buttons_Circle()
 	local buttons = {};
 	local mainButtonX = 20;
@@ -1038,7 +1205,7 @@ function UI_Buttons_Circle()
 
 	-- arc UI
 	table.insert(buttons, UI_Button('btn_show_arc'	,not arcActive				,'MiddleCenter'	,'ui_arcs'	,CircularOffset(angleStep * -1,radius)	,'ui_showarc',CircularRotation(angleStep * -1)));
-	table.insert(buttons, UI_Button('btn_hide_arc'	,arcActive					,'MiddleCenter'	,'ui_arcs'	,CircularOffset(angleStep * -1,radius)	,'ui_hidearc',CircularRotation(angleStep * -1)));
+	table.insert(buttons, UI_Button('btn_hide_arc'	,arcActive					,'MiddleCenter'	,'ui_arcs'	,CircularOffset(angleStep * -1,radius)	,'ui_hidearc',CircularRotation(angleStep * -1), '#cccc44ff|#ffff22ff|#404040ff|#808080ff'));
 
 	table.insert(buttons, UI_Button('btn_arc_sub'	,arcActive and arc_len > 0	,'MiddleCenter'	,'ui_minus'	,CircularOffset(angleStep * -0.5,radius+25)				,'ui_arcsub',CircularRotation(angleStep * -1)));
 	table.insert(buttons, {tag='text', attributes={id='disp_arc_len', active=(arcActive), height='30', width='30', rectAlignment='MiddleCenter', text=arc_len, offsetXY=CircularOffset(angleStep * -1,radius+20),rotation=CircularRotation(angleStep * -1), color='#ffffff', fontSize='20', outline='#000000'}});
@@ -1051,14 +1218,25 @@ function UI_Buttons_Circle()
 	table.insert(buttons, UI_Button('btn_move_sub'	,selectingMovement and moveRange > 0	,'MiddleCenter'	,'ui_minus'	,CircularOffset(angleStep * 1.7,radius+5)				,'ui_move_sub',CircularRotation(angleStep * 1)));
 	table.insert(buttons, UI_Button('btn_move_add'	,selectingMovement and moveRange < 30	,'MiddleCenter'	,'ui_plus'	,CircularOffset(angleStep * 0.3,radius+5)				,'ui_move_add',CircularRotation(angleStep * 1)));
 	
+
 	-- move start UI 
 	table.insert(buttons, UI_Button('btn_move_start'	,selectingMovement	,'MiddleCenter'	,'movenode'	,CircularOffset(angleStep * 1,radius+20),'ui_move_start',CircularRotation(angleStep * 1+ math.pi)));
 	table.insert(buttons, {tag='text', attributes={id='disp_mov_dist', active=(selectingMovement), height='30', width='30', rectAlignment='MiddleCenter', text=moveRange .. '¨', offsetXY=CircularOffset(angleStep * 1,radius+20),rotation=CircularRotation(angleStep * 1 ), color='#22ee22', fontSize='20', outline='#000000'}});
-	table.insert(buttons, UI_Button('btn_move_abort'	,moving	,'MiddleCenter'	,'ui_plus'	,CircularOffset(angleStep * 1,radius),'ui_move_abort',CircularRotation(angleStep * 1+ math.pi/4), '#cc4444ff|#ff2222ff|#404040ff|#808080ff'));
+	table.insert(buttons, UI_Button('btn_move_abort'	,moving	,'MiddleCenter'	,'ui_plus'	,CircularOffset(angleStep * 0.5,radius),'ui_move_abort',CircularRotation(angleStep * 0.5+ math.pi/4), '#cc4444ff|#ff2222ff|#404040ff|#808080ff'));
+	table.insert(buttons, UI_Button('btn_move_accept'	,moving and #Move_Steps > 0	,'MiddleCenter'	,'ui_check'	,CircularOffset(angleStep * 1.5,radius),'ui_move_accept',CircularRotation(angleStep * 1.5), '#44cc44ff|#22ff22ff|#404040ff|#808080ff'));
+		
+
+	-- move free
+	table.insert(buttons, UI_Button('btn_free_move',not free_moving,'MiddleCenter','movenode',CircularOffset(angleStep * -3.5,radius),'ui_move_free',CircularRotation(angleStep * -3.5)));
+	table.insert(buttons, UI_Button('btn_cancel_free_move',free_moving,'MiddleCenter','ui_plus',CircularOffset(angleStep * -3.5,radius),'ui_cancel_move_free',CircularRotation(angleStep * -3.5 + 45),'#cc4444ff|#ff2222ff|#404040ff|#808080ff'));
 
 	-- config UI
-	table.insert(buttons, UI_Button('btn_markers',true,'MiddleCenter','ui_gear',CircularOffset(angleStep * 3,radius),'ui_setmode(markers)',CircularRotation(angleStep * 3)));
-	table.insert(buttons, UI_Button('btn_refresh',true,'MiddleCenter','ui_reload',CircularOffset(angleStep * -3,radius),'rebuildUI',CircularRotation(angleStep * -3)));
+	table.insert(buttons, UI_Button('btn_markers',true,'MiddleCenter','ui_gear',CircularOffset(angleStep * 3,radius),'ui_setmode(markers)',CircularRotation(angleStep * 2.5)));
+	table.insert(buttons, UI_Button('btn_refresh',true,'MiddleCenter','ui_reload',CircularOffset(angleStep * -4.5,radius),'rebuildUI',CircularRotation(angleStep * -4.5)));
+
+	table.insert(buttons, UI_Button('btn_flag_true',flagged,'MiddleCenter','ui_flag',CircularOffset(angleStep * -2.5,radius),'toggleFlag',CircularRotation(angleStep * -2.5), '#cccc44ff|#ffff22ff|#404040ff|#808080ff'));
+	table.insert(buttons, UI_Button('btn_flag_false',not flagged,'MiddleCenter','ui_flag',CircularOffset(angleStep * -2.5,radius),'toggleFlag',CircularRotation(angleStep * -2.5)));
+
 	
 	return buttons;
 	end
@@ -1126,7 +1304,7 @@ function UI_Bars(reverse)
 		local decreaseButton = {tag='button', attributes={preferredHeight='20',preferredWidth='20',flexibleWidth='0',image='ui_minus',colors='#ccccccff|#ffffffff|#404040ff|#808080ff',onClick='ui_adjbar('..i..'|-1)',visibility=PERMEDIT} };
 		local bar ={tag='panel', attributes={flexibleWidth='1',flexibleHeight='1'},
 			children={
-				{tag='progressbar', attributes={width='100%',height='100%',id='bar_'..i,color='#00000080',fillImageColor=bar[2],percentage=per,textColor='transparent'} },
+				{tag='progressbar', attributes={width='100%',height='25',id='bar_'..i,color='#00000080',fillImageColor=bar[2],percentage=per,textColor='transparent'} },
 				{tag='text', attributes={id='bar_'..i..'_text',text=bar[3]..' / '..bar[4],active=bar[5]or false,color='#ffffff',fontStyle='Bold',outline='#000000',outlineSize='1 1'} }
 			}
 		}
@@ -1142,7 +1320,15 @@ function UI_Bars(reverse)
 		}
 		end
 		table.insert(bars,
-		{tag='horizontallayout', attributes={id='bar_'..i..'_container',minHeight=bar[6]and 30 or 15,childForceExpandWidth=false,childForceExpandHeight=false,childAlignment='MiddleCenter'},
+		{tag='horizontallayout', 
+			attributes={
+				id='bar_'..i..'_container',
+				minHeight= '28' ,
+				childForceExpandWidth=false,
+				childForceExpandHeight=false,
+				childAlignment='MiddleCenter',
+				
+			},
 			children={
 				decreaseButton,
 				bar,
