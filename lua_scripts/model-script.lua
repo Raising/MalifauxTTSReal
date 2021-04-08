@@ -12,29 +12,32 @@ local arc_len = 1;
 local base_radius = 1;
 local arc_obj;
 local flagged;
+local faction;
 
 local init = false;
-
-local indexOf = function(e, t)
-	for k,v in pairs(t) do
-		if (e == v) then return k end
-	end
-	return nil
-	end
 
 --LIFE CICLE EVENTS
 function onUpdate()
 	if init == false then
 		base_radius = self.getData().Transform.scaleX /2
+		--base_radius = state.imageScale * 2
+		init = true;
 	end
-	end
+end
+
 function onDestroy()
 	if (arc_obj ~= nil) then arc_obj.destruct() end
-	end
+end
+
 function onSave()
 	local data={}
 	data.bars=state.bars
 	data.markers=state.markers
+	-- data.baseScale = state.baseScale
+	-- data.imageScale = state.imageScale
+	-- data.name = state.name
+	-- data.faction = state.faction
+	-- data.playerColor = state.playerColor
 	return JSON.encode(data)
 	end
 function onLoad(save)
@@ -42,6 +45,11 @@ function onLoad(save)
 	save = JSON.decode(save) or {}
 	state.bars = save.bars or {}
 	state.markers = save.markers or {}
+	-- state.baseScale = data.baseScale or 0.6
+	-- state.imageScale = data.imageScale or 1.6
+	-- state.name = data.name or ""
+	-- state.faction = data.faction or ""
+	-- state.playerColor = data.playerColor or ""
 	rebuildAssets()
 	Wait.frames(rebuildUI, 3)
 	end
@@ -337,7 +345,8 @@ function recalculate_move_center()
 		move_obj.setVar('centerX',Current_Move_centerX)
 		move_obj.setVar('centerY',Current_Move_centerY)
 		move_obj.setVar('centerZ',Current_Move_centerZ)
-		move_obj.setVar('range',Distance_Left )
+		move_obj.setVar('range',free_moving and 200 or Distance_Left)
+		move_obj.setVar('maxRange',free_moving and 200 or moveRange)
 	end
 	--spawnRangeCircle()
 end
@@ -346,6 +355,7 @@ function add_move_step()
 	if free_moving then
 		destination = player.getPointerPosition();
 		self.setPosition(destination);
+		recalculate_move_center();
 	else
 		if Distance_Left > 0.01 then
 			destination = Current_Move_center:moveTowards(player.getPointerPosition(),Distance_Left)
@@ -464,7 +474,7 @@ function spawnMoveShadow(free)
 							if ]].. (not free and 'true' or 'false') .. [[ then
 							self.UI.setAttribute('move_trail','height',distance * 50 / ]]..base_radius..[[ )
 							end
-							self.UI.setAttribute('current_mov_dist','text',(maxRange - range + distance + 0.04)..'¨' )
+							self.UI.setAttribute('current_mov_dist','text',(math.floor((maxRange - range + distance + 0.04)*10)/10) .. '¨' )
 							self.setRotation({x=0,y=angle,z=0})
 						else
 							UIinit = UIinit -1
@@ -504,10 +514,11 @@ function spawnMoveShadow(free)
 								attributes={
 									id='current_mov_dist',
 									height='30',
-									width='30', 
+									width='70', 
 									rectAlignment='MiddleCenter',
 									text='¨', 
-									offsetXY='0 0 -20',
+									offsetXY='0 30 -20',
+									rotation='0 0 180',
 									color='#22ee22',
 									fontSize='20',
 									outline='#000000'
@@ -643,7 +654,7 @@ function arcSub()
 	end
 	function arcAdd()
 	if arc_obj~=nil then
-		arc_len=math.min(16,arc_len+1)
+		arc_len=math.min(24,arc_len+1)
 		arc_obj.setScale({1*(arc_len+(base_radius)),1,1*(arc_len+(base_radius))})
 		self.UI.setAttribute('disp_arc_len','text',arc_len)
 	end
@@ -662,9 +673,7 @@ function hideArc()
 	end
 function ui_showarc(player) showArc() end;
 function ui_hidearc(player) hideArc() end;
-function toggleFlag() end;
-function editFlag() end;
-function clearFlag() end;
+
 function ui_popmarker(player,value) popMarker({index=value}) end
 function ui_clearmarkers(player) clearMarkers() end
 --UI TRIGERED EVENTS END
@@ -897,8 +906,8 @@ function UI_Overhead()
 		tag='Panel', 
 		attributes={
 			childForceExpandHeight='false',
-			position='0 -40 -250',
-			rotation='-0 0 0',
+			position='0 5 -' .. 350 * base_radius,
+			rotation='-90 0 0',
 			active=ui_mode=='0',
 			scale='1 1 1',
 			height=0,
@@ -909,7 +918,7 @@ function UI_Overhead()
 			{
 				tag='VerticalLayout',
 				attributes={
-					rotation='-15 0 0',
+					rotation='0 0 0',
 					rectAlignment='LowerCenter',
 					childAlignment='LowerCenter',
 					childForceExpandHeight=false,
@@ -921,7 +930,23 @@ function UI_Overhead()
 					UI_Markers_Container(),
 					UI_Bars_Container(false),
 				}
-			},
+			},{
+				tag='VerticalLayout',
+				attributes={
+					rectAlignment='LowerCenter',
+					childAlignment='LowerCenter',
+					childForceExpandHeight=false,
+					childForceExpandWidth=true,
+					height='5000',
+					spacing='5',
+					rotation= '0 180 0',
+				},
+				children={
+					--UI_Markers_Container(),
+					UI_Bars_Container(true),
+					--UI_Buttons_Container()
+				}
+			}
 			
 		}
 	}
@@ -933,7 +958,7 @@ function UI_Floor()
 		tag='Panel', 
 		attributes={
 			childForceExpandHeight='false',
-			position='0 0 -4',
+			position='0 0 -20',
 			rotation='0 0 0',
 			active=ui_mode=='0',
 			scale='1 1 1',
@@ -1180,6 +1205,7 @@ function ui_cancel_move_free()
 end
 
 function toggleFlag()
+	trackPlayer
 	flagged = not flagged;
 	if flagged then
 		self.UI.show('btn_flag_true')
@@ -1199,43 +1225,43 @@ function UI_Buttons_Circle()
 	local buttons = {};
 	local mainButtonX = 20;
 	local arcActive = arc_obj ~= nil;
-	local radius = 65;
+	local radius = 35;
 	
 	local angleStep = 30 * degToRad;
 
 	-- arc UI
-	table.insert(buttons, UI_Button('btn_show_arc'	,not arcActive				,'MiddleCenter'	,'ui_arcs'	,CircularOffset(angleStep * -1,radius)	,'ui_showarc',CircularRotation(angleStep * -1)));
-	table.insert(buttons, UI_Button('btn_hide_arc'	,arcActive					,'MiddleCenter'	,'ui_arcs'	,CircularOffset(angleStep * -1,radius)	,'ui_hidearc',CircularRotation(angleStep * -1), '#cccc44ff|#ffff22ff|#404040ff|#808080ff'));
+	table.insert(buttons, UI_Button('btn_show_arc'	,not arcActive				,'MiddleCenter'	,'ui_arcs'	,CircularOffset(angleStep * -1.5,radius)	,'ui_showarc',CircularRotation(angleStep * -1.5)));
+	table.insert(buttons, UI_Button('btn_hide_arc'	,arcActive					,'MiddleCenter'	,'ui_arcs'	,CircularOffset(angleStep * -1.5,radius)	,'ui_hidearc',CircularRotation(angleStep * -1.5), '#cccc44ff|#ffff22ff|#404040ff|#808080ff'));
 
-	table.insert(buttons, UI_Button('btn_arc_sub'	,arcActive and arc_len > 0	,'MiddleCenter'	,'ui_minus'	,CircularOffset(angleStep * -0.5,radius+25)				,'ui_arcsub',CircularRotation(angleStep * -1)));
-	table.insert(buttons, {tag='text', attributes={id='disp_arc_len', active=(arcActive), height='30', width='30', rectAlignment='MiddleCenter', text=arc_len, offsetXY=CircularOffset(angleStep * -1,radius+20),rotation=CircularRotation(angleStep * -1), color='#ffffff', fontSize='20', outline='#000000'}});
-	table.insert(buttons, UI_Button('btn_arc_add'	,arcActive and arc_len < 16	,'MiddleCenter'	,'ui_plus'	,CircularOffset(angleStep * -1.5,radius+25)				,'ui_arcadd',CircularRotation(angleStep * -1)));
+	table.insert(buttons, UI_Button('btn_arc_sub'	,arcActive and arc_len > 0	,'MiddleCenter'	,'ui_minus'	,CircularOffset(angleStep * -1,radius+25)				,'ui_arcsub',CircularRotation(angleStep * -1.5)));
+	table.insert(buttons, {tag='text', attributes={id='disp_arc_len', active=(arcActive), height='30', width='30', rectAlignment='MiddleCenter', text=arc_len, offsetXY=CircularOffset(angleStep * -1.5,radius+20),rotation=CircularRotation(angleStep * -1.5), color='#ffffff', fontSize='15', outline='#000000'}});
+	table.insert(buttons, UI_Button('btn_arc_add'	,arcActive and arc_len < 16	,'MiddleCenter'	,'ui_plus'	,CircularOffset(angleStep * -2,radius+25)				,'ui_arcadd',CircularRotation(angleStep * -1.5)));
 
 	
 	-- move config UI 
-	table.insert(buttons, UI_Button('btn_show_move',not selectingMovement ,'MiddleCenter','ui_splitpath',CircularOffset(angleStep * 1,radius),'ui_move_open',CircularRotation(angleStep * 1)));
-	table.insert(buttons, UI_Button('btn_hide_move'	,selectingMovement   ,'MiddleCenter'	,'ui_splitpath'	,CircularOffset(angleStep * 1,radius)	,'ui_move_hide',CircularRotation(angleStep * 1)));
-	table.insert(buttons, UI_Button('btn_move_sub'	,selectingMovement and moveRange > 0	,'MiddleCenter'	,'ui_minus'	,CircularOffset(angleStep * 1.7,radius+5)				,'ui_move_sub',CircularRotation(angleStep * 1)));
-	table.insert(buttons, UI_Button('btn_move_add'	,selectingMovement and moveRange < 30	,'MiddleCenter'	,'ui_plus'	,CircularOffset(angleStep * 0.3,radius+5)				,'ui_move_add',CircularRotation(angleStep * 1)));
+	table.insert(buttons, UI_Button('btn_show_move',not selectingMovement ,'MiddleCenter','ui_splitpath',CircularOffset(angleStep * 1.5,radius),'ui_move_open',CircularRotation(angleStep * 1.5)));
+	table.insert(buttons, UI_Button('btn_hide_move'	,selectingMovement   ,'MiddleCenter'	,'ui_splitpath'	,CircularOffset(angleStep * 1.5,radius)	,'ui_move_hide',CircularRotation(angleStep * 1.5)));
+	table.insert(buttons, UI_Button('btn_move_sub'	,selectingMovement and moveRange > 0	,'MiddleCenter'	,'ui_minus'	,CircularOffset(angleStep * 2,radius+25)				,'ui_move_sub',CircularRotation(angleStep * 1.5)));
+	table.insert(buttons, UI_Button('btn_move_add'	,selectingMovement and moveRange < 30	,'MiddleCenter'	,'ui_plus'	,CircularOffset(angleStep * 1,radius+25)				,'ui_move_add',CircularRotation(angleStep * 1.5)));
 	
 
 	-- move start UI 
-	table.insert(buttons, UI_Button('btn_move_start'	,selectingMovement	,'MiddleCenter'	,'movenode'	,CircularOffset(angleStep * 1,radius+20),'ui_move_start',CircularRotation(angleStep * 1+ math.pi)));
-	table.insert(buttons, {tag='text', attributes={id='disp_mov_dist', active=(selectingMovement), height='30', width='30', rectAlignment='MiddleCenter', text=moveRange .. '¨', offsetXY=CircularOffset(angleStep * 1,radius+20),rotation=CircularRotation(angleStep * 1 ), color='#22ee22', fontSize='20', outline='#000000'}});
-	table.insert(buttons, UI_Button('btn_move_abort'	,moving	,'MiddleCenter'	,'ui_plus'	,CircularOffset(angleStep * 0.5,radius),'ui_move_abort',CircularRotation(angleStep * 0.5+ math.pi/4), '#cc4444ff|#ff2222ff|#404040ff|#808080ff'));
-	table.insert(buttons, UI_Button('btn_move_accept'	,moving and #Move_Steps > 0	,'MiddleCenter'	,'ui_check'	,CircularOffset(angleStep * 1.5,radius),'ui_move_accept',CircularRotation(angleStep * 1.5), '#44cc44ff|#22ff22ff|#404040ff|#808080ff'));
+	table.insert(buttons, UI_Button('btn_move_start'	,selectingMovement	,'MiddleCenter'	,'movenode'	,CircularOffset(angleStep * 1.5,radius+25),'ui_move_start',CircularRotation(angleStep * 1.5+ math.pi)));
+	table.insert(buttons, {tag='text', attributes={id='disp_mov_dist', active=(selectingMovement), height='30', width='30', rectAlignment='MiddleCenter', text=moveRange .. '¨', offsetXY=CircularOffset(angleStep * 1.5,radius+25),rotation=CircularRotation(angleStep * 1.5 ), color='#22ee22', fontSize='15', outline='#000000'}});
+	table.insert(buttons, UI_Button('btn_move_abort'	,moving	,'MiddleCenter'	,'ui_plus'	,CircularOffset(angleStep * 1,radius),'ui_move_abort',CircularRotation(angleStep * 1 + math.pi/4), '#cc4444ff|#ff2222ff|#404040ff|#808080ff'));
+	table.insert(buttons, UI_Button('btn_move_accept'	,moving and #Move_Steps > 0	,'MiddleCenter'	,'ui_check'	,CircularOffset(angleStep * 2,radius),'ui_move_accept',CircularRotation(angleStep * 2), '#44cc44ff|#22ff22ff|#404040ff|#808080ff'));
 		
 
 	-- move free
-	table.insert(buttons, UI_Button('btn_free_move',not free_moving,'MiddleCenter','movenode',CircularOffset(angleStep * -3.5,radius),'ui_move_free',CircularRotation(angleStep * -3.5)));
-	table.insert(buttons, UI_Button('btn_cancel_free_move',free_moving,'MiddleCenter','ui_plus',CircularOffset(angleStep * -3.5,radius),'ui_cancel_move_free',CircularRotation(angleStep * -3.5 + 45),'#cc4444ff|#ff2222ff|#404040ff|#808080ff'));
+	table.insert(buttons, UI_Button('btn_free_move',not free_moving,'MiddleCenter','movenode',CircularOffset(angleStep * 0,radius),'ui_move_free',CircularRotation(angleStep * 0)));
+	table.insert(buttons, UI_Button('btn_cancel_free_move',free_moving,'MiddleCenter','ui_plus',CircularOffset(angleStep * 0,radius),'ui_cancel_move_free',CircularRotation(angleStep * 0 + 45),'#cc4444ff|#ff2222ff|#404040ff|#808080ff'));
 
 	-- config UI
-	table.insert(buttons, UI_Button('btn_markers',true,'MiddleCenter','ui_gear',CircularOffset(angleStep * 3,radius),'ui_setmode(markers)',CircularRotation(angleStep * 2.5)));
+	table.insert(buttons, UI_Button('btn_markers',true,'MiddleCenter','ui_gear',CircularOffset(angleStep * -6,radius),'ui_setmode(markers)',CircularRotation(angleStep * -6)));
 	table.insert(buttons, UI_Button('btn_refresh',true,'MiddleCenter','ui_reload',CircularOffset(angleStep * -4.5,radius),'rebuildUI',CircularRotation(angleStep * -4.5)));
 
-	table.insert(buttons, UI_Button('btn_flag_true',flagged,'MiddleCenter','ui_flag',CircularOffset(angleStep * -2.5,radius),'toggleFlag',CircularRotation(angleStep * -2.5), '#cccc44ff|#ffff22ff|#404040ff|#808080ff'));
-	table.insert(buttons, UI_Button('btn_flag_false',not flagged,'MiddleCenter','ui_flag',CircularOffset(angleStep * -2.5,radius),'toggleFlag',CircularRotation(angleStep * -2.5)));
+	table.insert(buttons, UI_Button('btn_flag_true',flagged,'MiddleCenter','ui_flag',CircularOffset(angleStep * 4.5,radius),'toggleFlag',CircularRotation(angleStep * 4.5), '#cccc44ff|#ffff22ff|#404040ff|#808080ff'));
+	table.insert(buttons, UI_Button('btn_flag_false',not flagged,'MiddleCenter','ui_flag',CircularOffset(angleStep * 4.5,radius),'toggleFlag',CircularRotation(angleStep * 4.5)));
 
 	
 	return buttons;
@@ -1255,8 +1281,8 @@ function UI_Button(id,active,alignment,img,offsetXY,onClick,rotation,paramcolor)
 		attributes={
 			id=id, 
 			active=active, 
-			height='30', 
-			width='30', 
+			height='20', 
+			width='20', 
 			rectAlignment=alignment, 
 			image=img, 
 			offsetXY=offsetXY, 

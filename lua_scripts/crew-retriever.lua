@@ -118,7 +118,7 @@ function spawnModel ( modelName,modelSlot)
                 rotation = getSlotRotation(),
                 callback_function = function(spawnedObject)
                     spawnedObject.clone({position=referenceCardsContainerObject.getPosition(),rotation={x=0,y=180,z=0}})
-                    spawnedObject.call("createModel", controllerGUID)
+                    spawnedObject.call("ui_createModel", {})
                     table.insert(spawnedRefCards, spawnedObject)
                 end,
             })

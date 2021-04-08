@@ -1,16 +1,17 @@
 
 
-mini = nil
+local mini = nil
+local faction;
+local baseScale;
+local cardFrontImage;
+local cardBackImage;
+local health;
+local imageScale;
+local modelImage;
+local name;
+local playerColor='green';
 
-baseScale=1.2
-health=8
-imageScale=1.7
-modelImage="http://cloud-3.steamusercontent.com/ugc/1651098362943190184/A5ACD40BB47E1E01A2C26FC34F4A965B144539D9/"
-modelScaleX=0.54
-modelScaleY=0.54
-name="Viktoria Chambers B"
-
-prototypes = {
+local prototypes = {
     base = '000000',
 }
 function destruct()
@@ -18,10 +19,13 @@ function destruct()
         mini.destruct()    
     end
 end
+function ui_createModel()
+    createModel(self.getPosition())
+end
 
-function createModel(controllerGUID)
-    local pos = self.getPosition()
-    pos = {x=pos.x, y=pos.y + 2, z=pos.z+2}
+
+function createModel(position)
+    local pos = position:add(Vector(0,2,0))
 
     if mini ~= nil then
         pos = mini.getPosition()
@@ -42,14 +46,14 @@ function createModel(controllerGUID)
             image_secondary = modelImage,
             image_scalar = imageScale
         })
-        modelElement.setScale({x=modelScaleX, y=modelScaleY, z=0.2})
+        modelElement.setScale(Vector(0.40 * baseScale, 0.40 * baseScale, 0.2 ));
         model.addAttachment(modelElement)
     end
     model.setDescription(objectData.Description)
     model.setName(name)
-    model.script_state =  "{\"bars\":[[\"Health\",\"#55aa22\"," ..health .."," ..health..",true,true]],\"markers\":[]}"
+    model.script_state =  "{\"bars\":[[\"Health\",\"#55aa22\"," ..health .."," ..health..",true,true]]," .. "\"markers\":[]," .. "\"baseScale\":".. baseScale .."," .."\"imageScale\":" .. imageScale  .."," .."\"name\":\"" .. name  .."\"," .."\"faction\":\"" .. faction  .."\"," .."\"playerColor\":\"" .. playerColor  .."\"" .. "}";
     --  {bars={{'Health','#55aa22',health,health,true,true}},markers={}}
-    model.call('setController',{guid:controllerGUID})
+    -- model.call('setController',{guid:controllerGUID})
     mini = model
     -- end
 end
@@ -97,7 +101,11 @@ function rebuildAssets()
 end
 
 function rebuildUI()
-    
+    self.setCustomObject({
+        image = cardFrontImage,
+        image_secondary = cardBackImage,
+    });
+
     local ui = {
         {tag='Defaults', children={
             {tag='Text', attributes={color='#cccccc', fontSize='18', alignment='MiddleLeft'}},
@@ -108,7 +116,7 @@ function rebuildUI()
         }},
         
         {tag='button', attributes={onClick='ui_pingmini', image='ui_location',  colors='#ccccccff|#ffffffff|#404040ff|#808080ff', width='20', height='20', position='-40 -110 -5', rotation='0 0 180' }},
-        {tag='button', attributes={onClick='createModel',text='Spawn Model',  colors='#ccccccff|#ffffffff|#404040ff|#808080ff', width='120', height='20', position='0 110 -5', rotation='0 0 180' }} 
+        {tag='button', attributes={onClick='ui_createModel',text='Spawn Model',  colors='#ccccccff|#ffffffff|#404040ff|#808080ff', width='120', height='20', position='0 110 -5', rotation='0 0 180' }} 
     }
     
     self.UI.setXmlTable(ui)
@@ -120,7 +128,16 @@ function onSave()
         miniguid = mini.getGUID()
     end
     local save = {
-     mini = miniguid
+        mini = miniguid,
+        baseScale = baseScale,
+        health = health,
+        imageScale = imageScale,
+        modelImage = modelImage,
+        name = name,
+        playerColor = playerColor, 
+        faction = faction,
+        cardFrontImage = cardFrontImage,
+        cardBackImage = cardBackImage,
     }
     return JSON.encode(save)
 end
@@ -129,6 +146,16 @@ end
 function onLoad(save)
     local data = JSON.decode(save)
     mini = getObjectFromGUID(data.mini)
+    baseScale = data.baseScale;
+    health = data.health;
+    imageScale = data.imageScale;
+    modelImage = data.modelImage;
+    cardFrontImage = data.cardFrontImage;
+    cardBackImage =data.cardBackImage;
+    name = data.name;
+    faction = data.faction or 'Arcanist';
+    playerColor = data.playerColor or 'Blue';
+
     rebuildUI()
 end
 

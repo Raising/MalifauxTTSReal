@@ -110,22 +110,27 @@ const factionTraslation = {
     "UPGRADES": "upgrades",
 }
 
- 
+let modelCounter = 1000;
+
 const createReferenceCard= (figData,referenceCardPrototype,onlyName = false) => {
     let referenceCard = JSON.parse(referenceCardPrototype);
+    referenceCard.GUID = 'EE' + modelCounter++;
     referenceCard.CustomImage.ImageURL = figData.cardFront
     referenceCard.CustomImage.ImageSecondaryURL = figData.cardBack
     referenceCard.Nickname = onlyName ? figData.name : `${figData.name}\r\n${figData.keywords.join(',')}`;
     referenceCard.Description = `${figData.name}\r\n${figData.keywords.join(',')}`;
 
-    referenceCard.LuaScript = referenceCard.LuaScript.replace('[BASE_SCALE]',figData.baseScale);
-    referenceCard.LuaScript = referenceCard.LuaScript.replace('[HEALTH]',figData.health);
-    referenceCard.LuaScript = referenceCard.LuaScript.replace('[IMAGE_SCALE]',figData.imageScale);
-    referenceCard.LuaScript = referenceCard.LuaScript.replace('[MODEL_IMAGE]',figData.modelImage);
-    referenceCard.LuaScript = referenceCard.LuaScript.replace('[MODEL_SCALE_X]',figData.modelScaleX);
-    referenceCard.LuaScript = referenceCard.LuaScript.replace('[MODEL_SCALE_Y]',figData.modelScaleY);
-    referenceCard.LuaScript = referenceCard.LuaScript.replace('[NICKNAME]',figData.name);
-
+    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('BASE_SCALE',figData.baseScale);
+    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('HEALTH',figData.health);
+    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('IMAGE_SCALE',figData.imageScale);
+    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('MODEL_IMAGE',figData.modelImage);
+    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('IMAGE_FRONT',figData.cardFront);
+    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('IMAGE_BACK',figData.cardBack);
+    // referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('[MODEL_SCALE_X]',figData.modelScaleX);
+    // referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('[MODEL_SCALE_Y]',figData.modelScaleY);
+    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('NICKNAME',figData.name);
+    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('FACTION','Arcanist');
+    
     return referenceCard;
 }
 
