@@ -51,9 +51,10 @@ function createModel(position)
     end
     model.setDescription(objectData.Description)
     model.setName(name)
-    model.script_state =  "{\"bars\":[[\"Health\",\"#55aa22\"," ..health .."," ..health..",true,true]]," .. "\"markers\":[]," .. "\"baseScale\":".. baseScale .."," .."\"imageScale\":" .. imageScale  .."," .."\"name\":\"" .. name  .."\"," .."\"faction\":\"" .. faction  .."\"," .."\"playerColor\":\"" .. playerColor  .."\"" .. "}";
-    --  {bars={{'Health','#55aa22',health,health,true,true}},markers={}}
-    -- model.call('setController',{guid:controllerGUID})
+    model.script_state = "{\"originalData\":{\"base\":{\"color\":{\"a\":1,\"b\":1,\"g\":0.5,\"r\":1},\"size\":".. baseScale * 25 .."},\"health\":{\"current\":" ..health ..",\"max\":" ..health .."},\"imageScale\":" .. imageScale  .."}}";
+
+
+
     mini = model
     -- end
 end
