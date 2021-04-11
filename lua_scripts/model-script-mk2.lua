@@ -1,4 +1,4 @@
-local RSS_Class = 'Model';
+RSS_Class = 'Model';
 
 ------ CLASS VARIABLES ----------------------
 
@@ -139,6 +139,18 @@ local RSS_Class = 'Model';
 
 ------ MODEL MANIPULATION -------------------
 	
+	function AuraFollowObject(params)
+		if ChildObjs.aura_obj ~= nil then
+			ChildObjs.aura_obj.setVar('parent',params.obj);
+		end
+	end
+
+	function AuraResetFollow()
+		if ChildObjs.aura_obj ~= nil then
+			ChildObjs.aura_obj.setVar('parent',self);
+		end
+	end
+
 	function RefreshModelShape()
 		local attachments = self.getAttachments()
 		for key,value in pairs(attachments) do
@@ -335,129 +347,6 @@ local RSS_Class = 'Model';
 		Activated  = { url="https://raw.githubusercontent.com/RobMayer/TTSLibrary/master/ui/flag.png", color="#bbbb22", stacks=false },
 	}
 
------- MOVEMENT RUTINE ----------------------
-
-	function start_move_flow(_player)
-		state.move.moving = true;
-		state.move.movingPlayer = _player;
-		recalculate_move_center()
-		spawnMoveShadow()
-		self.setLock(true)
-		self.setRotation(Vector(0,self.getRotation().y,0))
-		-- self.UI.setAttribute('move_click_detection', 'visibility', _player.color)
-		-- self.UI.show('move_click_detection')
-	end
-
-	function abort_move_flow()
-		clean_move_flow()
-	end
-
-	function accept_move_flow()
-		clean_move_flow()
-		self.setPosition(state.move.currentMoveCenter)
-		ui_move_hide()
-	end
-
-	function clean_move_flow()
-		state.move.moving = false;
-		state.move.free_moving = false;
-		if arc_obj ~= nil then
-			arc_obj.setVar('parent',self)
-		end
-		if move_obj ~= nil then
-			move_obj.destruct();
-		end
-		if move_range_obj ~= nil then
-			move_range_obj.destruct();
-		end
-		for key,step in pairs(state.move.moveSteps) do
-			if (step.shadow ~= nil) then
-				step.shadow.destruct();
-			end
-		end
-		state.move.moveSteps = {};
-
-		self.UI.hide('move_click_detection')
-	end
-
-	function recalculate_move_center()
-		local previous_pos = self.getPosition();
-		local distDiff = state.move.moveRange;
-		for key,step in pairs(state.move.moveSteps) do
-			distDiff = distDiff - previous_pos:distance(step.pos);
-			previous_pos = step.pos;
-		end
-		state.move.currentMoveCenter = Vector(previous_pos.x,previous_pos.y,previous_pos.z);
-		state.move.currentMoveCenterX = previous_pos.x;
-		state.move.currentMoveCenterY = previous_pos.y;
-		state.move.currentMoveCenterZ = previous_pos.z;
-		state.move.distanceLeft = distDiff;
-
-		if move_obj ~= nil then
-			move_obj.setVar('centerX',state.move.currentMoveCenterX)
-			move_obj.setVar('centerY',state.move.currentMoveCenterY)
-			move_obj.setVar('centerZ',state.move.currentMoveCenterZ)
-			move_obj.setVar('range',state.move.free_moving and 200 or state.move.distanceLeft)
-			move_obj.setVar('maxRange',state.move.free_moving and 200 or state.move.moveRange)
-		end
-		--spawnRangeCircle()
-	end
-
-	function add_move_step()
-		if state.move.free_moving then
-			state.move.destination = state.move.movingPlayer.getPointerPosition();
-			self.setPosition(state.move.destination);
-			recalculate_move_center();
-		else
-			if state.move.distanceLeft > 0.01 then
-				state.move.destination = state.move.currentMoveCenter:moveTowards(state.move.movingPlayer.getPointerPosition(),state.move.distanceLeft)
-				move_obj.setVar('lock',true)
-				state.move.moveSteps[#state.move.moveSteps+1] = {pos = state.move.destination, shadow = move_obj};
-				move_obj = nil;	
-				recalculate_move_center();
-				if state.move.distanceLeft > 0.01 then
-					spawnMoveShadow(false)
-				end
-			end
-		end
-	end
-
-	function remove_move_step()
-		if state.move.free_moving then
-			cancel_free_move()
-		else
-			if #state.move.moveSteps > 0 then
-				state.move.moveSteps[#state.move.moveSteps].shadow.destruct()
-				table.remove(state.move.moveSteps,#state.move.moveSteps);
-				recalculate_move_center();
-				if move_obj ~= nil then
-					move_obj.destruct()
-					move_obj = nil;	
-				end
-				spawnMoveShadow(false)
-			end
-		end
-	end
-
-	function start_free_move(_player)
-		state.move.movingPlayer = _player;
-		state.move.free_moving = true;
-		
-		recalculate_move_center();
-		self.UI.setAttribute('move_click_detection', 'visibility', _player.color)
-		self.UI.show('move_click_detection')
-		spawnMoveShadow(true)
-
-	end
-
-	function cancel_free_move()
-		state.move.free_moving = false;
-		clean_move_flow();
-		self.UI.show('btn_free_move')
-		self.UI.hide('btn_cancel_free_move')
-	end
-
-
 ------ Object SPAWMERS ----------------------
 
 	function showAura()
@@ -476,7 +365,6 @@ local RSS_Class = 'Model';
 			sound=false,
 			snap_to_grid=false,
 			callback_function=function(b)
-				
 				b.setColorTint(clr)
 				b.setVar('parent',self)
 				b.setLuaScript([[
@@ -519,156 +407,6 @@ local RSS_Class = 'Model';
 		})
 		ChildObjs.aura_obj.setCustomObject({
 			mesh='https://raw.githubusercontent.com/RobMayer/TTSLibrary/master/components/arcs/round0.obj',
-			collider='https://raw.githubusercontent.com/RobMayer/TTSLibrary/master/utility/null_COL.obj',
-			material=3,
-			specularIntensity=0,
-			cast_shadows=false
-		})
-	end
-
-	function spawnMoveShadow(free)
-
-		local a=(state.base.size/50) * 2;
-		local me = self
-		local clr = self.getColorTint()
-
-		
-		clr.a = 0.5;
-
-			move_obj=spawnObject({
-			type='custom_model',
-			position=state.move.currentMoveCenter,
-			rotation=Vector(0,0,0),
-			scale={a,1,a},
-			mass=0,
-			use_gravity=false,
-			sound=false,
-			snap_to_grid=false,
-			callback_function=function(b)
-				if arc_obj ~= nil then
-					arc_obj.setVar('parent',b)
-				end
-				b.setColorTint(clr)
-				b.setVar('model',self)
-				b.setVar('movingPlayer',state.move.movingPlayer)
-				-- b.setVar('center',{x=state.move.currentMoveCenterX,y=state.move.currentMoveCenterY,z=state.move.currentMoveCenterZ})
-				b.setVar('centerX',state.move.currentMoveCenterX)
-				b.setVar('centerY',state.move.currentMoveCenterY)
-				b.setVar('centerZ',state.move.currentMoveCenterZ)
-				b.setVar('range',free and 200 or state.move.distanceLeft)
-				b.setVar('maxRange',free and 200 or state.move.moveRange)
-				b.setVar('lock',false)
-				
-
-				b.setLuaScript([[
-					local lastPointer = {};
-					local UIinit = 2
-					function onLoad() 
-						(self.getComponent('BoxCollider') or self.getComponent('MeshCollider')).set('enabled',false)
-						Wait.condition(
-							function() 
-								(self.getComponent('BoxCollider') or self.getComponent('MeshCollider')).set('enabled',false) 
-								self.UI.setXmlTable({DirectionFeedBack()})
-								
-							end, 
-							function() 
-								return not(self.loading_custom) 
-							end
-						) 
-					end 
-					function onUpdate() 
-						
-						if (model ~= nil and movingPlayer ~= nil) then 
-							
-							if lock == false and lastPointer ~= movingPlayer.getPointerPosition() and UIinit < 0 then
-								lastPointer = movingPlayer.getPointerPosition()
-								local center = Vector(centerX,centerY,centerZ);
-								local destination = center:copy():moveTowards(lastPointer,range)
-								self.setPosition(destination)
-							
-							
-								local angle = math.atan2(destination.z - center.z, center.x-destination.x  ) * 180 / math.pi  + 90;
-								
-								local zDist = destination.z - center.z;
-								local xDist = center.x - destination.x ;
-								local distance = math.sqrt(zDist* zDist + xDist * xDist)
-								if ]].. (not free and 'true' or 'false') .. [[ then
-								self.UI.setAttribute('move_trail','height',distance * 50 / ]]..base_radius..[[ )
-								end
-								self.UI.setAttribute('current_mov_dist','text',(math.floor((maxRange - range + distance + 0.04)*10)/10) .. '¨' )
-								self.setRotation({x=0,y=angle,z=0})
-							else
-								UIinit = UIinit -1
-							end
-						else
-							self.destruct() 
-						end 
-						
-					end
-									
-					function DirectionFeedBack()
-						local ui_direction = { 
-							tag='Panel', 
-							attributes={
-								childForceExpandHeight='false',
-								position='0 0 -10',
-								rotation='0 0 0',
-								scale='1 1 1',
-								height=0,
-								color='#aaaa3355',
-								width=0
-							},
-							children={
-								{
-									tag='Panel',
-									attributes={
-										id='move_trail',
-										rectAlignment='LowerCenter',
-										height='0',
-										width='100',
-										spacing='5',
-										color='#aaaa3355',
-									}
-								},
-								{
-									tag='text',
-									attributes={
-										id='current_mov_dist',
-										height='30',
-										width='70', 
-										rectAlignment='MiddleCenter',
-										text='¨', 
-										offsetXY='0 30 -20',
-										rotation='0 0 180',
-										color='#22ee22',
-										fontSize='20',
-										outline='#000000'
-									}
-								}
-							}
-						}
-						return ui_direction;
-					end
-					function ui_add_move_step()
-						print("click on move step")
-					end
-				]])
-				b.getComponent('MeshRenderer').set('receiveShadows',false)
-				b.mass=0
-				b.bounciness=0
-				b.drag=0
-				b.use_snap_points=false
-				b.use_grid=false
-				b.use_gravity=false
-				b.auto_raise=false
-				b.auto_raise=false
-				b.sticky=false
-				b.interactable=false
-			end
-		})
-		move_obj.setCustomObject({
-			-- mesh='https://raw.githubusercontent.com/RobMayer/TTSLibrary/master/components/arcs/round0.obj',
-			mesh='http://cloud-3.steamusercontent.com/ugc/922542758751649800/E140136A8F24712A0CE7E63CF05809EE5140A8B7/',
 			collider='https://raw.githubusercontent.com/RobMayer/TTSLibrary/master/utility/null_COL.obj',
 			material=3,
 			specularIntensity=0,
