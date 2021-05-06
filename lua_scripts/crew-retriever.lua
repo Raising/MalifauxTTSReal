@@ -4,13 +4,22 @@ controllerGUID = "e894f6"
 
 referenceCardsContainerObject = nil
 upgradeContainerObject = nil
-color = ''
-
+playerColor = ''
+local workInProgress = false;
 
 basePositionBlue = {x= -22, y=1.5,z=14}
 basePositionRed = {x= 22, y=1.5,z=-14}
 
 spawnedRefCards = {}
+local Factions = {};
+Factions["Explorer's Society"] = Color(0/255, 114/255, 111/255);
+Factions["Resurrectionist"] = Color(37/255, 136/255, 69/255);
+Factions["Arcanists"] = Color(0/255, 90/255, 154/255);
+Factions["Guild"] = Color(191/255, 26/255, 33/255);
+Factions["Outcasts"] = Color(181/255, 143/255, 18/255);
+Factions["Neverborn"] = Color(95/255, 53/255, 129/255);
+Factions["Bayou"] = Color(145/255, 93/255, 35/255);
+Factions["Ten Thunders"] = Color(208/255, 95/255, 36/255);
 
 function onload(saved_data)
     createAll()
@@ -49,15 +58,21 @@ function reloadAll()
 end
 
 function retrieve_crew_ui(_obj, _color, alt_click)
-
-    print(_color)
-    if _color ~= 'Red' and _color ~= 'Blue' then
-        broadcastToAll("Please Select Color first, only Blue and Red are Valid");
+    if workInProgress == false then
+        workInProgress = true;
+        Wait.time( function() workInProgress =false;end,10);
+        if _color ~= 'Red' and _color ~= 'Blue' then
+            broadcastToAll("Please Select Color first, only Blue and Red are Valid");
+        else
+            playerColor = _color
+            retrieve_crew()
+        
+        end
     else
-        color = _color
-        retrieve_crew()
+        GetPlayerFromColor(playerColor).broadcast("Retrieving the crew wait 10 seconds pls",_color)
     end
 end
+
 function retrieve_crew()
     for key,refCard in pairs(spawnedRefCards) do
         if refCard ~= nil and not refCard.isDestroyed() then
@@ -66,7 +81,7 @@ function retrieve_crew()
         end
     end
     spawnedRefCards = {}
-    local placeReferences = false
+    local placingReferences = false
    
     if referenceCardsContainerObject == nil then
         referenceCardsContainerObject = getObjectFromGUID(referenceCardsContainerGUID)
@@ -78,6 +93,9 @@ function retrieve_crew()
     local modelPosition = 0
    local description = self.getData().Description
    local separatedCrew = mysplit(description)
+   
+   local faction = getFaction(separatedCrew[1])
+   GetPlayerFromColor(playerColor).broadcast("Retrieving '"..separatedCrew[1].."' crew ",Color[playerColor])
    for key,value in pairs(separatedCrew) do
     local starterCharacter = string.sub(value, 1, 2)
     if starterCharacter == '  ' then
@@ -87,16 +105,16 @@ function retrieve_crew()
         spawnUpgrade(string.sub(entity, 3),modelPosition)
         print('upgrade: ' .. string.sub(entity, 3))
       else
-        spawnModel(entity,modelPosition)
+        spawnModel(entity,modelPosition,faction,placingReferences)
         print('model: ' .. entity)
-        if placeReferences == false then
+        if placingReferences == false then
             modelPosition = modelPosition +1
         end
         
       end
     else
         if value == 'References:' then
-            placeReferences = true    
+            placingReferences = true    
             modelPosition = modelPosition + 2
         end
 
@@ -104,25 +122,49 @@ function retrieve_crew()
     
    end
 end
+-- player board
+--2 - Guild, 3 - Arcanist, 4 - Resurrectionnists, 5 - Neverborn, 6 -Ten thunders, 7 - Outcast, 8 - Explorer, 9 - Bayou
 
-function spawnModel ( modelName,modelSlot)
+function getFaction(firstCrewLine)
+    for faction,color in pairs(Factions) do
+        if ends_with(firstCrewLine,"(".. faction ..")") then
+            return faction;
+        end
+    end
+end
+
+function spawnModel ( modelName,modelSlot,faction,isReference)
     ismodel = false;
-
+    local found = 0;
+    local color = Factions[faction];
     for key,containedObject in pairs(referenceCardsContainerObject.getObjects()) do
-        if containedObject.name == modelName then
+        local isEquivalentModel = containedObject.name == modelName;
+        if isReference then
+            isEquivalentModel = starts_with(containedObject.name,modelName);
+            
+        end
+        if isEquivalentModel then
             ismodel = true
-           
             referenceCardsContainerObject.takeObject({
-                index = containedObject.index,
+                index = containedObject.index - found,
                 position =  getSlotPosition(modelSlot):add(Vector(0,1,0)),
                 rotation = getSlotRotation(),
                 callback_function = function(spawnedObject)
                     spawnedObject.clone({position=referenceCardsContainerObject.getPosition(),rotation={x=0,y=180,z=0}})
-                    spawnedObject.call("ui_createModel", {})
+                    spawnedObject.call("rt_createModel", {faction=faction,r = color.r,g = color.g,b = color.b,isReference=isReference})
                     table.insert(spawnedRefCards, spawnedObject)
                 end,
             })
-            break 
+            found = found +1;
+            if isReference == false then
+                break 
+            else
+             
+            end
+        else
+            if isReference and found > 3 then
+                break
+            end
         end
     end
 
@@ -159,20 +201,20 @@ function getSlotPosition(modelSlot)
         targetPos = targetPos - 10
     end
 
-    if color == 'Red' then
+    if playerColor == 'Red' then
         return Vector( basePositionRed.x+ row * 6,basePositionRed.y  ,basePositionRed.z + ((targetPos) * ( 3.5)))
     end
-    if color == 'Blue' then
+    if playerColor == 'Blue' then
         return Vector( basePositionBlue.x+ row * -6,basePositionBlue.y  ,basePositionBlue.z + ((targetPos) * ( -3.5)))
     end
 end
 
 
 function getSlotRotation(modelSlot)
-    if color == 'Red' then
+    if playerColor == 'Red' then
         return {x=0,y=90,z=0}
     end
-    if color == 'Blue' then
+    if playerColor == 'Blue' then
         return {x=0,y=-90,z=0}
     end
 end
@@ -207,4 +249,20 @@ function reset_val()
     val = 0
     updateVal()
     updateSave()
+end
+
+function starts_with(str, start)
+    return str:sub(1, #start) == start
+end
+
+function ends_with(str, ending)
+    return ending == "" or str:sub(-#ending) == ending
+end
+
+function GetPlayerFromColor(color)
+    for _, player in pairs(Player.getPlayers()) do
+        if player.color == color then
+            return player;
+        end
+    end
 end

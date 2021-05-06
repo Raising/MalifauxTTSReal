@@ -8,7 +8,7 @@ RSS_Class = 'Model';
 	local Conditions = {}
 	local originalData = nil;
 	local state = {
-		conditions={Adversary = 0,Fast = 0,Poison = 0,Burning = 0,Focus = 0,Distracted = 0,Injured = 0,Staggered = 0,Stunned = 0,Shielded = 0, Aura=0,Activated =0	},
+		conditions={Adversary = 0,Fast = 0,Poison = 0,Burning = 0,Focus = 0,Distracted = 0,Injured = 0,Staggered = 0,Stunned = 0,Shielded = 0, Aura=0,Activated =0,Mode= 0	},
 		tokens={},
 		health={current=-1,max= 9},
 		base={size=30,color=Color(1,0.5,1)},
@@ -18,28 +18,20 @@ RSS_Class = 'Model';
 		
 
 		referenceCard = { GUID = '', obj = nil},
-		move={
-			moving = false,
-			movingPlayer = '',
-			currentMoveCenter = Vector(0,0,0),
-			moveSteps = {},
-			moveRange = 5,
-			currentMoveCenterX = 0,
-			currentMoveCenterY = 0,
-			currentMoveCenterZ = 0,
-			distanceLeft = 0,
-			free_moving = false,
-			destination	= Vector(0,0,0),
-		}
+	
 	};
 
 	local UIStatus = {
-		Blue = {rotation = 0},
-		Red = {rotation = 0},
-		Grey= {rotation = 0},
-	}
+		Blue = {rotation = -2},
+		Red = {rotation = -2},
+		Black = {rotation = -2},
+		Grey = {rotation = -2},
+	};
+
+	
 
 ------ LIFE CICLE EVENTS --------------------
+
 	function onDestroy()
 		if (ChildObjs.aura_obj ~= nil) then ChildObjs.aura_obj.destruct() end
 	end
@@ -75,6 +67,7 @@ RSS_Class = 'Model';
 	function recoverState(save)
 		if save.state ~= nil then
 			state = save.state;
+			state.conditions.Mode = state.conditions.Mode ~= nil and state.conditions.Mode or 0;
 		else 
 			originalData = save.originalData;
 			state.health = originalData.health;
@@ -127,10 +120,13 @@ RSS_Class = 'Model';
 		end
 		local states  = self.getData();
 	
-		print (self.getData().Nickname .. [[: ']] .. params.name .. [[' ]] .. previousValue .. [[->]] .. state.conditions[params.name])
-		
-		--Sync()
-		SyncCondition(params.name)
+		if params.name == 'Mode' then
+			Sync()
+		else
+			print (self.getData().Nickname .. [[: ']] .. params.name .. [[' ]] .. previousValue .. [[->]] .. state.conditions[params.name])
+			SyncCondition(params.name)
+		end
+
 	end
 
 	function ModifyMoveRange(params)
@@ -167,11 +163,10 @@ RSS_Class = 'Model';
 	end
 	
 	function RefreshBaseColor()
-		
 		if state.conditions.Activated == 0 then
 			self.setColorTint(state.base.color)
 		else
-			self.setColorTint( Color(state.base.color):lerp(Color.Orange, 0.85) )
+			self.setColorTint( Color(state.base.color):lerp(Color.white, 0.45) )
 		end
 	end
 ------ UI GENERATION ------------------------
@@ -189,7 +184,7 @@ RSS_Class = 'Model';
 		local secondary = Conditions[name].secondary;
 		local imageName = (secondary == nil and name or (state.conditions[name] > 1 and name or secondary));
 	
-		for k,color in pairs({'Red', 'Blue','Grey|Black'}) do
+		for k,color in pairs({'Red', 'Blue','Grey','Black'}) do
 			self.UI.setAttributes(color.."_ConditionImage_".. name, {
 				color= Conditions[imageName].color .. (state.conditions[name] > 0  and 'ff' or '22'),
 				image= imageName,
@@ -206,7 +201,7 @@ RSS_Class = 'Model';
 	end	
 	
 	function SyncHealth()
-		for k,color in pairs({'Red', 'Blue','Grey|Black'}) do
+		for k,color in pairs({'Red', 'Blue','Grey','Black'}) do
 			self.UI.setAttributes( color .. "_HealthBar_Text", {
 				text = state.health.current.. [[/]] .. state.health.max
 			});
@@ -224,9 +219,10 @@ RSS_Class = 'Model';
 	function HUDLookAtPlayer(player)
 		local playerRotation  = player.getPointerRotation();
 		if playerRotation == nil then playerRotation = 0 end;
-		local pointerRotation =playerRotation - self.getRotation().y +180;
+		local pointerRotation = playerRotation - self.getRotation().y +180;
+		pointerRotation = math.floor((pointerRotation+15) / 30)
 		if pointerRotation ~= UIStatus[player.color].rotation then
-			self.UI.setAttribute(player.color .. '_PlayerHUDPivot','rotation','0 0 '.. -pointerRotation  )
+			self.UI.setAttribute(player.color .. '_PlayerHUDPivot','rotation','0 0 '.. -30 * pointerRotation  )
 			UIStatus[player.color].rotation = pointerRotation;
 		end
 	end
@@ -237,6 +233,7 @@ RSS_Class = 'Model';
 			PlayerHUDPivot('Blue')..
 			PlayerHUDPivot('Red')..
 			PlayerHUDPivot('Grey')..
+			PlayerHUDPivot('Black')..
 			[[</Panel>
 		]];
 	end
@@ -252,16 +249,28 @@ RSS_Class = 'Model';
 
 	function PlayerHUDPivot(color)
 		return [[
-			<Panel id=']]..color..[[_PlayerHUDPivot' visibility=']]..color..[[' height="160" width="128" position='0 0 -280' rotation='0 0 ]] .. - UIStatus[color].rotation .. [[' rectAlignment="MiddleCenter"  childForceExpandWidth="false">
+			<Panel id=']]..color..[[_PlayerHUDPivot' visibility=']]..color..[[' height="160" width="100" position='0 0 -240' rotation='0 0 ]] .. - UIStatus[color].rotation .. [[' rectAlignment="MiddleCenter" childForceExpandWidth="false">
 		
-			]]..PlayerHUDContainer(color)..[[
+			]]..(state.conditions.Mode == 0 and PlayerHUDContainer(color) or Compact_PlayerHUD(color))..[[
 		</Panel>
 		]]
 	end
 
+	
+	function Compact_PlayerHUD(color)
+		return [[
+			<Panel id='PlayerHUD_Container' active='true' height="80" width="60" rectAlignment="MiddleCenter"  rotation='-35 0 0' position='0 0 0' childForceExpandWidth="false">]]..
+			Compact_HUDConditions(color) ..
+				[[<ProgressBar width="100%" height="20" id="]] .. color .. [[_HealthBar" color='#00000080' fillImageColor="#44AA22FF" percentage="]] ..(state.health.current / state.health.max * 100) .. [[" textColor="#00000000"/>  ]] ..
+				[[<Text id=']] .. color .. [[_HealthBar_Text' fontSize='18' height="20" onClick='UI_ModifyHealth' text=']] .. state.health.current.. [[/]] .. state.health.max.. [[' color='#ffffff' fontStyle='Bold' outline='#000000' outlineSize='1 1' />]] ..
+			[[</Panel>
+		]]
+	end
+
+
 	function PlayerHUDContainer(color)
 		return [[
-			<Panel id='PlayerHUD_Container' active='true' height="80" width="100%" rectAlignment="MiddleCenter"  rotation='-35 0 0' position='0 50 0' childForceExpandWidth="false">]]..
+			<Panel id='PlayerHUD_Container' active='true' height="80" width="128" rectAlignment="MiddleCenter"  rotation='-35 0 0' position='0 50 0' childForceExpandWidth="false">]]..
 				HUDConditions(color) ..
 				[[<ProgressBar width="100%" height="30" id="]] .. color .. [[_HealthBar" color='#00000080' fillImageColor="#44AA22FF" percentage="]] ..(state.health.current / state.health.max * 100) .. [[" textColor="#00000000"/>  ]] ..
 				[[<Text id=']] .. color .. [[_HealthBar_Text' fontSize='25' height="30" onClick='UI_ModifyHealth' text=']] .. state.health.current.. [[/]] .. state.health.max.. [[' color='#ffffff' fontStyle='Bold' outline='#000000' outlineSize='1 1' />]] ..
@@ -269,25 +278,52 @@ RSS_Class = 'Model';
 		]]
 	end
 
-	function HUDConditions(color)
+	function Compact_HUDConditions(color)
+		local size = 18;
+		local size2 = 10;
 		
 		return [[<Panel width="100%" rectAlignment="MiddleLeft" position='0 0 0' > ]]..
-		HUDSingleCondition(color,"Burning", 0 , 1) ..
-		HUDSingleCondition(color,"Poison", 1 , 1) ..
-		HUDSingleCondition(color,"Injured", 2 , 1) ..
-		HUDSingleCondition(color,"Distracted", 3 , 1) ..
+		HUDSingleCondition(color,"Burning", 0.5 , 2.5,size2) ..
+		HUDSingleCondition(color,"Poison", 1.5 , 2.5,size2) ..
+		HUDSingleCondition(color,"Injured", 2.5 , 2.5,size2) ..
+		HUDSingleCondition(color,"Distracted", 3.5 , 2.5,size2) ..
 
-		--HUDSingleCondition(color,"Slow", 0 , -1) ..
-		HUDSingleCondition(color,"Fast", 0 , -1) ..
-		HUDSingleCondition(color,"Stunned", 1 , -1) ..
-		HUDSingleCondition(color,"Staggered", 2 , -1) ..
-		HUDSingleCondition(color,"Adversary", 3 , -1) ..
+		--HUDSingleCondition(color,"Slow", 0.5 , -1.5,size2) ..
+		HUDSingleCondition(color,"Fast", 0.5 , 1.5,size2) ..
+		HUDSingleCondition(color,"Stunned", 1.5 , 1.5,size2) ..
+		HUDSingleCondition(color,"Staggered", 2.5 , 1.5,size2) ..
+		HUDSingleCondition(color,"Adversary", 3.5 , 1.5,size2) ..
 		
-		HUDSingleCondition(color,"Focus", -1 ,0.5) ..
-		HUDSingleCondition(color,"Shielded", -1 ,-0.5) ..
+		HUDSingleCondition(color,"Focus", -0.5 ,2.5,size2) ..
+		HUDSingleCondition(color,"Shielded", -0.5 ,1.5,size2) ..
 
-		HUDSingleCondition(color,"Aura", 4 ,-0.5) ..
-		HUDSingleCondition(color,"Activated", 4 ,0.5) ..
+		HUDSingleCondition(color,"Aura", 1.5 ,-1,size) ..
+		HUDSingleCondition(color,"Activated", 0.5 ,-1,size) ..
+		HUDSingleCondition(color,"Mode", 2.5 ,-1,size) ..
+		
+		[[</Panel>]]
+	end
+
+	function HUDConditions(color)
+		local size = 30;
+		return [[<Panel width="100%" rectAlignment="MiddleLeft" position='0 0 0' > ]]..
+		HUDSingleCondition(color,"Burning", 0 , 1,size) ..
+		HUDSingleCondition(color,"Poison", 1 , 1,size) ..
+		HUDSingleCondition(color,"Injured", 2 , 1,size) ..
+		HUDSingleCondition(color,"Distracted", 3 , 1,size) ..
+
+		--HUDSingleCondition(color,"Slow", 0 , -1,size) ..
+		HUDSingleCondition(color,"Fast", 0 , -1,size) ..
+		HUDSingleCondition(color,"Stunned", 1 , -1,size) ..
+		HUDSingleCondition(color,"Staggered", 2 , -1,size) ..
+		HUDSingleCondition(color,"Adversary", 3 , -1,size) ..
+		
+		HUDSingleCondition(color,"Focus", -1 ,0.5,size) ..
+		HUDSingleCondition(color,"Shielded", -1 ,-0.5,size) ..
+
+		HUDSingleCondition(color,"Aura", 4 ,1,size) ..
+		HUDSingleCondition(color,"Activated", 4 ,0,size) ..
+		HUDSingleCondition(color,"Mode", 4 ,-1,size) ..
 		
 		[[</Panel>]]
 	end
@@ -296,37 +332,41 @@ RSS_Class = 'Model';
 	function UI_ModifyCondition(alt,name) if alt ~= '-3' then ModifyCondition({name=name,amount= (alt == '-1' and 1 or (alt == '-2' and -1) or 0 ) }) end end
 	function UI_ModifyAura(p,alt) if alt ~= '-3' then ModifyAura({amount= (alt == '-1' and 1 or (alt == '-2' and -1) or 0 ) }) end end
 	function UI_ModifyHealth(p,alt) if alt ~= '-3' then ModifyHealth({amount= (alt == '-1' and 1 or (alt == '-2' and -1) or 0 ) }) end end
-
+	
 	function UI_ModifyBurning(p,alt) UI_ModifyCondition(alt,"Burning") end
 	function UI_ModifyPoison(p,alt) UI_ModifyCondition(alt,"Poison") end
 	function UI_ModifyInjured(p,alt) UI_ModifyCondition(alt,"Injured") end
 	function UI_ModifyDistracted(p,alt) UI_ModifyCondition(alt,"Distracted") end
-
+	
 	
 	function UI_ModifyFast(p,alt) UI_ModifyCondition(alt,"Fast") end
 	function UI_ModifyStunned(p,alt) UI_ModifyCondition("0","Stunned") end
 	function UI_ModifyStaggered(p,alt) UI_ModifyCondition("0","Staggered") end
 	function UI_ModifyAdversary(p,alt) UI_ModifyCondition("0","Adversary") end
 	function UI_ModifyActivated(p,alt) UI_ModifyCondition("0","Activated") end
+	function UI_ModifyMode(p,alt)  UI_ModifyCondition(alt,"Mode") end
 
 	function UI_ModifyFocus(p,alt) UI_ModifyCondition(alt,"Focus") end
 	function UI_ModifyShielded(p,alt) UI_ModifyCondition(alt,"Shielded") end
 
 
-	function HUDSingleCondition(color,name,x,y)
+	function HUDSingleCondition(color,name,x,y,size)
+	
 		local id = "ConditionFrame_" .. name ;
-		return [[<Panel id="]] .. id ..[[" width="30" height="30" alignment='LowerLeft' position=']] ..(x* 32 - 49).. [[ ]] .. y*(32) .. [[ 0' ]] .. 
+		return [[<Panel id="]] .. id ..[[" width="]] ..size..[[" height="]] ..size..[[" alignment='LowerLeft' position=']] ..((x* (size +2)) - (1.5*size + 2)).. [[ ]] .. y*( (size +2)) .. [[ 0' ]] .. 
 		[[onClick='UI_Modify]] .. name ..[[()'>]] ..
-			HUDSingleConditionBody(color,name)..
+			HUDSingleConditionBody(color,name,size)..
 		[[</Panel>]];
 	end
 
-	function HUDSingleConditionBody(color,name)
+	function HUDSingleConditionBody(color,name,size)
 		local secondary = Conditions[name].secondary;
 		local imageName = (secondary == nil and name or (state.conditions[name] > 1 and name or secondary));
+		local colorBlock = Conditions[imageName].color .. (state.conditions[name] > 0  and 'ff' or '22'); --.. [[|]] .. Conditions[imageName].color .. [[ff|#00000000|#00000000]];
+	
 		return [[
-			<Image id="]]..color ..[[_ConditionImage_]]..name ..[[" image="]] .. imageName .. [[" color="]] .. Conditions[imageName].color .. (state.conditions[name] > 0  and 'ff' or '22') .. [[" rectAlignment='LowerLeft' width='30' height='30'/>
-			<Text  id="]]..color ..[[_ConditionText_]]..name ..[[" active=']] .. (Conditions[name].stacks and state.conditions[name] > 0 and 'true' or 'false')  ..[['  fontSize='22' text=']] .. state.conditions[name] .. [[' color='#ffffff' fontStyle='Bold'  rectAlignment='LowerLeft' outline='#000000' outlineSize='1 1' />
+			<Image id="]]..color ..[[_ConditionImage_]]..name ..[[" image="]] .. imageName .. [[" color="]] .. colorBlock .. [[" rectAlignment='LowerLeft' width=']] ..size..[[' height=']] ..size..[['/>
+			<Text  id="]]..color ..[[_ConditionText_]]..name ..[[" active=']] .. (Conditions[name].stacks and state.conditions[name] > 0 and 'true' or 'false')  ..[['  fontSize=']] ..math.floor(size*0.85)..[[' text=']] .. state.conditions[name] .. [[' color='#ffffff' fontStyle='Bold'  rectAlignment='LowerLeft' outline='#000000' outlineSize='1 1' />
 		]]
 	end
 
@@ -345,6 +385,8 @@ RSS_Class = 'Model';
 		Shielded = { url="http://cloud-3.steamusercontent.com/ugc/1019447087554495459/45E41E4CF603049EEF4B3EAB39DC0B3DC93DFE78/", color="#6AC3FF", stacks=true },
 		Aura = { url="https://raw.githubusercontent.com/RobMayer/TTSLibrary/master/ui/movenode.png", color="#99aa22", stacks=true },
 		Activated  = { url="https://raw.githubusercontent.com/RobMayer/TTSLibrary/master/ui/flag.png", color="#bbbb22", stacks=false },
+		Mode  = { url="https://raw.githubusercontent.com/RobMayer/TTSLibrary/master/ui/gear.png", color="#bbffbb", stacks=false, loop = 2 }
+		
 	}
 
 ------ Object SPAWMERS ----------------------
@@ -369,6 +411,7 @@ RSS_Class = 'Model';
 				b.setVar('parent',self)
 				b.setLuaScript([[
 					local lastParent = nil
+					local clock = 2
 					function onLoad() 
 						(self.getComponent('BoxCollider') or self.getComponent('MeshCollider')).set('enabled',false)
 						Wait.condition(
@@ -382,11 +425,15 @@ RSS_Class = 'Model';
 					end 
 					function onUpdate() 
 						if (parent ~= nil) then 
-							if (not parent.resting or lastParent ~= parent) then 
-								lastParent = parent
-								self.setPosition(parent.getPosition())
-								self.setRotation(parent.getRotation()) 
-							end 
+							if clock < 0 then
+								clock = 2;
+								if self.getPosition():distance(parent.getPosition()) > 0.01 then
+									self.setPosition(parent.getPosition())
+									self.setRotation(parent.getRotation()) 
+								end
+							else
+								clock = clock - 1
+							end
 						else 
 							self.destruct() 
 						end 

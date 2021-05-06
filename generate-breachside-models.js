@@ -61,7 +61,7 @@ const getMalifauxBag = async () => {
         index = 1;
         MalifauxModelsInfo.models[figurine.name].fileNames.frontJPGs.forEach( (officialDataImage) => {
         
-            let cardFrontImage = `https://firebasestorage.googleapis.com/v0/b/m3e-crew-builder-22534.appspot.com/o/${encodeURIComponent(officialDataImage)}?alt=media`
+            let cardFrontImage = `https://firebasestorage.googleapis.com/v0/b/m3e-crew-builder-22534.appspot.com/o/${encodeURIComponent(officialDataImage)}?alt=media&v=2021`
             let referenceCard = createReferenceCard({...figurine,cardFront:cardFrontImage, name: index == 1 ? figurine.name : figurine.name + " " + index},referenceModelPrototype);
             figurine.factions.forEach(factionName => {
                 if ( factionReferences[factionName] === undefined){
