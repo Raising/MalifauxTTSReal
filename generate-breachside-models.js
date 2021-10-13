@@ -3,10 +3,10 @@
 
 // const orePosition = require("./libs/ore-position.js").default;
 
- var fs = require('fs');
+var fs = require('fs');
 // var text2png = require('text2png');
 // var path    = require('path');
-const pdfTransform = require("pdf-transform-png");
+// const pdfTransform = require("pdf-transform-png");
 
 
 
@@ -25,94 +25,106 @@ var inputPath = {
     referenceModelPrototype: __dirname + '\\prototypes\\reference-card-prototype.json',
     boxContainerPrototype: __dirname + '\\prototypes\\box-container.json',
 
-    allModelData : __dirname + '\\prototypes\\all-models-data.json',
-    
+    allModelData: __dirname + '\\prototypes\\all-models-data.json',
+
     officialModelInfo: __dirname + '\\prototypes\\OfficialModelInformationMalifaux.json',
     officialUpgradesInfo: __dirname + '\\prototypes\\OfficialUpgradeInformationMalifaux.json',
 
     allBagInput: __dirname + '\\prototypes\\AllBreachsideReferences.json',
-} 
+}
 
-var loadFile = async (filePath,isJson) => {
-    return await new Promise((resolve,rejects) => {
+var loadFile = async (filePath, isJson) => {
+    return await new Promise((resolve, rejects) => {
         fs.readFile(filePath, 'utf8', function (err, data) {
-            resolve(isJson ? JSON.parse(data) :data);
+            resolve(isJson ? JSON.parse(data) : data);
         });
     });
 }
 const getMalifauxBag = async () => {
-    let referenceModelPrototype =  await loadFile(inputPath.referenceModelPrototype,false);
-    let upgradeCardPrototype =  await loadFile(inputPath.upgradeCardPrototype,false)
-    let boxContainer =   await loadFile(inputPath.boxContainerPrototype,true)
+    let referenceModelPrototype = await loadFile(inputPath.referenceModelPrototype, false);
+    let upgradeCardPrototype = await loadFile(inputPath.upgradeCardPrototype, false)
+    let boxContainer = await loadFile(inputPath.boxContainerPrototype, true)
 
-    let MalifauxModelsInfo =  await loadFile(inputPath.officialModelInfo,true);
-    let MalifauxUpgradesInfo =   await loadFile(inputPath.officialUpgradesInfo,true);
+    let MalifauxModelsInfo = await loadFile(inputPath.officialModelInfo, true);
 
-    let figurineData =  await loadFile(inputPath.allModelData,true);
+    ReformatOficialData(MalifauxModelsInfo);
 
-    
+
+    let MalifauxUpgradesInfo = await loadFile(inputPath.officialUpgradesInfo, true);
+
+    let figurineData = await loadFile(inputPath.allModelData, true);
+
+
 
     factionReferences = {
-        all:[],
-        upgrades:[],
+        all: [],
+        upgrades: [],
     };
 
-    Object.values(figurineData).forEach( figurine => {
+    Object.values(figurineData).forEach(figurine => {
         index = 1;
-        MalifauxModelsInfo.models[figurine.name].fileNames.frontJPGs.forEach( (officialDataImage) => {
-        
-            let cardFrontImage = `https://firebasestorage.googleapis.com/v0/b/m3e-crew-builder-22534.appspot.com/o/${encodeURIComponent(officialDataImage)}?alt=media&v=2021`
-            let referenceCard = createReferenceCard({...figurine,cardFront:cardFrontImage, name: index == 1 ? figurine.name : figurine.name + " " + index},referenceModelPrototype);
-            figurine.factions.forEach(factionName => {
-                if ( factionReferences[factionName] === undefined){
-                    factionReferences[factionName] = [];
-                }
-                factionReferences[factionName].push(referenceCard);
+        if (MalifauxModelsInfo.models[figurine.name] === undefined) {
+            console.log(figurine.name);
+            insertReferenceCard(figurine,figurine.cardFront,1,referenceModelPrototype,factionReferences);
+        } else {
+
+            MalifauxModelsInfo.models[figurine.name].fileNames.frontJPGs.forEach((officialDataImage) => {
+
+                let cardFrontImage = `https://firebasestorage.googleapis.com/v0/b/m3e-crew-builder-22534.appspot.com/o/${encodeURIComponent(officialDataImage)}?alt=media&v=2021`
+                insertReferenceCard(figurine,cardFrontImage,index,referenceModelPrototype,factionReferences);
+                // let referenceCard = createReferenceCard({ ...figurine, cardFront: cardFrontImage, name: index == 1 ? figurine.name : figurine.name + " " + index }, referenceModelPrototype);
+           
+                // figurine.factions.forEach(factionName => {
+                //     if (factionReferences[factionName] === undefined) {
+                //         factionReferences[factionName] = [];
+                //     }
+                //     factionReferences[factionName].push(referenceCard);
+                // });
+                // referenceCard = createReferenceCard({ ...figurine, cardFront: cardFrontImage, name: index == 1 ? figurine.name : figurine.name + " " + index }, referenceModelPrototype, true);
+                // factionReferences.all.push(referenceCard);
+
+                index++;
+
             });
-            referenceCard = createReferenceCard({...figurine,cardFront:cardFrontImage, name: index == 1 ? figurine.name : figurine.name + " " + index},referenceModelPrototype,true);
-            factionReferences.all.push(referenceCard);
-            
-            index++;
+        }
 
-        });
 
-    
     });
 
 
-    Object.values(MalifauxUpgradesInfo).forEach( upgrade => {
-        let upgradeCard =createUpgradeCard(upgrade,upgradeCardPrototype);
-        for (let i = 0; i<upgrade.rarity;i++){
+    Object.values(MalifauxUpgradesInfo).forEach(upgrade => {
+        let upgradeCard = createUpgradeCard(upgrade, upgradeCardPrototype);
+        for (let i = 0; i < upgrade.rarity; i++) {
             factionReferences.upgrades.push(upgradeCard);
         }
     });
- 
-    boxContainer.ObjectStates[0].ContainedObjects.forEach( childContainer => {
+
+    boxContainer.ObjectStates[0].ContainedObjects.forEach(childContainer => {
         childContainer.ContainedObjects = factionReferences[factionTraslation[childContainer.Nickname]];
     })
-    await fs.writeFile(allBagOutPut,JSON.stringify(boxContainer),() => {});
-   // await fs.writeFile(allModelData,JSON.stringify(figurineData),() => {});
+    await fs.writeFile(allBagOutPut, JSON.stringify(boxContainer), () => { });
+    // await fs.writeFile(allModelData,JSON.stringify(figurineData),() => {});
     console.log("done");
 }
 
 getMalifauxBag();
 
 const factionTraslation = {
-    "OUTCAST" :"Outcasts",
-    "BAYOU" :"Bayou",
-    "GUILD" :"Guild",
-    "NEVERBORN" :"Neverborn", 
-    "TEN THUNDERS" : "Ten Thunders",  
-    "ARCANIST" : "Arcanists", 
-    "EXPLORER SOCIETY" :"Explorer's Society",
-    "RESURRECTIONISTS" :"Resurrectionist",
+    "OUTCAST": "Outcasts",
+    "BAYOU": "Bayou",
+    "GUILD": "Guild",
+    "NEVERBORN": "Neverborn",
+    "TEN THUNDERS": "Ten Thunders",
+    "ARCANIST": "Arcanists",
+    "EXPLORER SOCIETY": "Explorer's Society",
+    "RESURRECTIONISTS": "Resurrectionist",
     "ALL": "all",
     "UPGRADES": "upgrades",
 }
 
 let modelCounter = 1000;
 
-const createReferenceCard= (figData,referenceCardPrototype,onlyName = false) => {
+const createReferenceCard = (figData, referenceCardPrototype, onlyName = false) => {
     let referenceCard = JSON.parse(referenceCardPrototype);
     referenceCard.GUID = 'EE' + modelCounter++;
     referenceCard.CustomImage.ImageURL = figData.cardFront
@@ -120,22 +132,22 @@ const createReferenceCard= (figData,referenceCardPrototype,onlyName = false) => 
     referenceCard.Nickname = onlyName ? figData.name : `${figData.name}\r\n${figData.keywords.join(',')}`;
     referenceCard.Description = `${figData.name}\r\n${figData.keywords.join(',')}`;
 
-    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('BASE_SCALE',figData.baseScale);
-    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('HEALTH',figData.health);
-    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('IMAGE_SCALE',figData.imageScale);
-    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('MODEL_IMAGE',figData.modelImage);
-    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('IMAGE_FRONT',figData.cardFront);
-    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('IMAGE_BACK',figData.cardBack);
-    // referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('[MODEL_SCALE_X]',figData.modelScaleX);
-    // referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('[MODEL_SCALE_Y]',figData.modelScaleY);
-    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('NICKNAME',figData.name);
-    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('FACTION','Arcanist');
-    
+    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('[BASE_SCALE]', figData.baseScale);
+    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('[HEALTH]', figData.health);
+    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('[IMAGE_SCALE]', figData.imageScale);
+    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('[MODEL_IMAGE]', figData.modelImage);
+    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('[IMAGE_FRONT]', figData.cardFront);
+    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('[IMAGE_BACK]', figData.cardBack);
+    // referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('[[MODEL_SCALE_X]]',figData.modelScaleX);
+    // referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('[[MODEL_SCALE_Y]]',figData.modelScaleY);
+    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('[NICKNAME]', figData.name);
+    referenceCard.LuaScriptState = referenceCard.LuaScriptState.replace('[FACTION]', 'Arcanist');
+
     return referenceCard;
 }
 
- 
-const createUpgradeCard= (upgradeData,upgradeCardPrototype) => {
+
+const createUpgradeCard = (upgradeData, upgradeCardPrototype) => {
     let referenceCard = JSON.parse(upgradeCardPrototype);
 
     let image = `https://firebasestorage.googleapis.com/v0/b/m3e-crew-builder-22534.appspot.com/o/${encodeURIComponent(upgradeData.fileNames.frontJPGs[0])}?alt=media`;
@@ -147,9 +159,46 @@ const createUpgradeCard= (upgradeData,upgradeCardPrototype) => {
     return referenceCard;
 }
 
+const ReformatOficialData = (MalifauxModelsInfo) => {
+    Object.values(MalifauxModelsInfo.models).forEach(model => {
+        let name = model.name;
+        if (model.title !== undefined) {
+            name += ", " + model.title;
+        }
+        if (model.canonicalName) { // If this property is set then overwrite name with it as is the one used in reality
+            name = model.canonicalName;
+        }
+        MalifauxModelsInfo.models[name] = model;
+
+        if (model.alternates !== undefined) {
+            Object.values(model.alternates).forEach(model2 => {
+                let name = model2.name;
+                if (model.title !== undefined) {
+                    name += ", " + model2.title;
+                }
+                MalifauxModelsInfo.models[name] = model2;
+            })
+        }
+
+
+    })
+}
+
+const insertReferenceCard = (figurine,cardFrontImage,index,referenceModelPrototype,factionReferences) => {
+    let referenceCard = createReferenceCard({ ...figurine, cardFront: cardFrontImage, name: index == 1 ? figurine.name : figurine.name + " " + index }, referenceModelPrototype);
+    figurine.factions.forEach(factionName => {
+        if (factionReferences[factionName] === undefined) {
+            factionReferences[factionName] = [];
+        }
+        factionReferences[factionName].push(referenceCard);
+    });
+    referenceCard = createReferenceCard({ ...figurine, cardFront: cardFrontImage, name: index == 1 ? figurine.name : figurine.name + " " + index }, referenceModelPrototype, true);
+    factionReferences.all.push(referenceCard);
+
+}
 
 const retrieverFromTTSObject = () => {
-       //factionContainer.ObjectStates[0].ContainedObjects = [];
+    //factionContainer.ObjectStates[0].ContainedObjects = [];
     // figurineData = {};
     // let missmatch = 0;
     // BreachsideData.ObjectStates[0].ContainedObjects
@@ -193,11 +242,11 @@ const retrieverFromTTSObject = () => {
     //     });
     //     referenceCard = createReferenceCard( figurineData[figurine.Nickname],referenceModelPrototype,true);
     //     factionReferences.all.push(referenceCard);
-    
+
     //     })
     // });
 
-    
+
     // Object.values(figurineData).forEach( figData => {
     //     let referenceCard = JSON.parse(referenceModelPrototype);
     //     referenceCard.CustomImage.ImageURL = figData.cardFront
